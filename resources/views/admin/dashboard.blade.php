@@ -79,6 +79,20 @@
                 </div>
             </div>
         </div>
+
+        <!-- Thêm Card mới cho Cài Đặt Hệ Thống -->
+        <div class="col-md-4 mb-4">
+            <div class="card border-dark">
+                <div class="card-body text-center">
+                    <i class="fas fa-cog fa-3x text-dark mb-3"></i>
+                    <h5 class="card-title">Cài Đặt Hệ Thống</h5>
+                    <p class="card-text">Cấu hình thông tin và cài đặt chung</p>
+                    <a href="{{ route('admin.settings') }}" class="btn btn-dark">
+                        <i class="fas fa-arrow-right"></i> Cài đặt
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Statistics Cards -->

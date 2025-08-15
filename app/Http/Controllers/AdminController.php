@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash; // vì bạn có dùng Hash::make()
 use Spatie\Permission\Models\Role;   // thêm dòng này
 use Illuminate\Support\Facades\Storage; // vì bạn có dùng Storage::exists()
+use App\Models\Setting;
+
 
 class AdminController extends Controller
 {
@@ -318,5 +320,145 @@ class AdminController extends Controller
 
         return response()->json(['message' => 'Cập nhật vai trò thành công!']);
     }
+
+    // ==================== QUẢN LÝ BÁO CÁO ====================
+    public function reports()
+    {
+        $revenue = Order::where('payment_status', 'paid')->sum('total_amount');
+        $topProducts = Product::withCount('orderItems')->orderBy('order_items_count', 'desc')->take(5)->get();
+        $topCustomers = Order::where('payment_status', 'paid')
+            ->selectRaw('customer_id, SUM(total_amount) as total_spent, COUNT(*) as order_count')
+            ->groupBy('customer_id')
+            ->orderBy('total_spent', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($order) {
+                $customer = $order->customer;
+                return (object) [
+                    'name' => $customer ? $customer->name : 'Khách vãng lai',
+                    'email' => $customer ? $customer->email : 'N/A',
+                    'total_spent' => $order->total_spent,
+                    'order_count' => $order->order_count,
+                ];
+            });
+        return view('admin.reports.index', compact('revenue', 'topProducts', 'topCustomers'));
+    }
+        public function revenueReport()
+    {
+        $revenueByMonth = Order::where('payment_status', 'paid')
+            ->selectRaw('MONTH(created_at) as month, SUM(total_amount) as total')
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get()
+            ->pluck('total', 'month')
+            ->all();
+        return view('admin.reports.revenue', compact('revenueByMonth'));
+    }
+
+    public function productReport()
+    {
+        $topProducts = Product::withCount('orderItems')
+            ->orderBy('order_items_count', 'desc')
+            ->paginate(10);
+        return view('admin.reports.products', compact('topProducts'));
+    }
+
+    public function customerReport()
+    {
+        $topCustomers = Order::where('payment_status', 'paid')
+            ->selectRaw('customer_id, SUM(total_amount) as total_spent, COUNT(*) as order_count')
+            ->groupBy('customer_id')
+            ->orderBy('total_spent', 'desc')
+            ->take(10)
+            ->get()
+            ->map(function ($order) {
+                $customer = $order->customer;
+                return (object) [
+                    'name' => $customer ? $customer->name : 'Khách vãng lai',
+                    'email' => $customer ? $customer->email : 'N/A',
+                    'total_spent' => $order->total_spent,
+                    'order_count' => $order->order_count,
+                ];
+            });
+        return view('admin.reports.customers', compact('topCustomers'));
+    }
+
+    public function exportRevenue()
+    {
+        $revenueByMonth = Order::where('payment_status', 'paid')
+            ->selectRaw('MONTH(created_at) as month, SUM(total_amount) as total')
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'Tháng' => date('F', mktime(0, 0, 0, $item->month, 1)),
+                    'Doanh thu' => number_format($item->total, 0, ',', '.') . ' ₫',
+                ];
+            });
+
+        $export = $revenueByMonth->prepend(['Tháng', 'Doanh thu']);
+
+        return response()->streamDownload(function () use ($export) {
+            $handle = fopen('php://output', 'w');
+            foreach ($export as $row) {
+                fputcsv($handle, $row);
+            }
+            fclose($handle);
+        }, 'revenue_report_' . date('Ymd_His') . '.csv', [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="revenue_report_' . date('Ymd_His') . '.csv"',
+        ]);
+    }
+
+    public function exportProducts()
+    {
+        $topProducts = Product::withCount('orderItems')
+            ->orderBy('order_items_count', 'desc')
+            ->take(10)
+            ->get()
+            ->map(function ($product) {
+                return [
+                    'Tên sản phẩm' => $product->name,
+                    'Số lượng bán' => $product->order_items_count,
+                    'SKU' => $product->sku,
+                ];
+            });
+
+        $export = $topProducts->prepend(['Tên sản phẩm', 'Số lượng bán', 'SKU']);
+
+        return response()->streamDownload(function () use ($export) {
+            $handle = fopen('php://output', 'w');
+            foreach ($export as $row) {
+                fputcsv($handle, $row);
+            }
+            fclose($handle);
+        }, 'product_report_' . date('Ymd_His') . '.csv', [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="product_report_' . date('Ymd_His') . '.csv"',
+        ]);
+    }
+
+    // ==================== CÀI ĐẶT HỆ THỐNG ====================
+    public function settings()
+    {
+        $settings = Setting::first() ?? new Setting(); // Giả sử có model Setting
+        return view('admin.settings.index', compact('settings'));
+    }
+
+    public function updateSettings(Request $request)
+    {
+        $validated = $request->validate([
+            'site_name' => 'required|string|max:255',
+            'email' => 'required|email',
+            'phone' => 'required|string|max:20',
+        ]);
+
+        $setting = Setting::first() ?? new Setting();
+        $setting->updateOrCreate(['id' => $setting->id ?? null], $validated);
+
+        return redirect()->route('settings')->with('success', 'Cài đặt đã được cập nhật!');
+    }
+
 
 }
