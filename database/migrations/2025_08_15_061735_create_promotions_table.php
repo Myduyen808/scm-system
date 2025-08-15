@@ -4,16 +4,17 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreatePromotionsTable extends Migration
+return new class extends Migration
 {
     public function up()
     {
         Schema::create('promotions', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->decimal('discount', 5, 2);
-            $table->date('start_date');
-            $table->date('end_date');
+            $table->string('name'); // Tên khuyến mãi
+            $table->decimal('discount', 5, 2); // Giảm giá (% hoặc giá trị)
+            $table->date('start_date'); // Ngày bắt đầu
+            $table->date('end_date'); // Ngày kết thúc
+            $table->boolean('is_active')->default(true); // Trạng thái hoạt động
             $table->timestamps();
         });
     }
@@ -22,4 +23,4 @@ class CreatePromotionsTable extends Migration
     {
         Schema::dropIfExists('promotions');
     }
-}
+};

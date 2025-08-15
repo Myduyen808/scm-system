@@ -11,38 +11,53 @@ use Illuminate\Support\Facades\Auth;
 
 class EmployeeController extends Controller
 {
+    public function __construct()
+        {
+            $this->middleware('auth');
+            $this->middleware('role:employee');
+        }
+
     public function dashboard()
     {
         $totalProducts = Product::count();
         $pendingOrders = Order::where('status', 'pending')->count();
         $openTickets = SupportTicket::where('status', 'open')->count();
-        return view('employee.dashboard', compact('totalProducts', 'pendingOrders', 'openTickets'));
+        $activePromotions = Promotion::where('is_active', true)
+                                    ->whereDate('start_date', '<=', now())
+                                    ->whereDate('end_date', '>=', now())
+                                    ->count();
+        $orderStats = [
+            'pending' => Order::where('status', 'pending')->count(),
+            'processing' => Order::where('status', 'processing')->count(),
+            'completed' => Order::where('status', 'completed')->count(),
+        ];
+        return view('employee.dashboard', compact('totalProducts', 'pendingOrders', 'openTickets', 'activePromotions', 'orderStats'));
     }
 
-    // Quản lý kho
+    // Quản lý kho (Inventory)
     public function inventory(Request $request)
     {
         if (!Auth::user()->can('manage inventory')) {
-            abort(403);
+            abort(403, 'Bạn không có quyền truy cập.');
         }
         $query = Product::query();
         if ($request->search) {
-            $query->where('name', 'like', '%' . $request->search . '%');
+            $query->where('name', 'like', '%' . $request->search . '%')
+                  ->orWhere('sku', 'like', '%' . $request->search . '%');
         }
         $products = $query->paginate(10);
         return view('employee.inventory.index', compact('products'));
     }
-
     public function updateInventory(Request $request, $productId)
-    {
-        if (!Auth::user()->can('manage inventory')) {
-            abort(403);
+        {
+            if (!Auth::user()->can('manage inventory')) {
+                abort(403);
+            }
+            $product = Product::findOrFail($productId);
+            $validated = $request->validate(['stock_quantity' => 'required|integer|min:0']);
+            $product->update($validated);
+            return redirect()->back()->with('success', 'Cập nhật tồn kho thành công!');
         }
-        $product = Product::findOrFail($productId);
-        $validated = $request->validate(['stock_quantity' => 'required|integer|min:0']);
-        $product->update($validated);
-        return redirect()->back()->with('success', 'Cập nhật tồn kho thành công!');
-    }
 
     public function createInventory()
     {
@@ -59,9 +74,10 @@ class EmployeeController extends Controller
         }
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'regular_price' => 'required|numeric',
+            'regular_price' => 'required|numeric|min:0',
             'stock_quantity' => 'required|integer|min:0',
             'sku' => 'required|string|unique:products',
+            'description' => 'nullable|string',
         ]);
         Product::create($validated);
         return redirect()->route('employee.inventory')->with('success', 'Thêm sản phẩm thành công!');
@@ -81,7 +97,8 @@ class EmployeeController extends Controller
         if (!Auth::user()->can('manage inventory')) {
             abort(403);
         }
-        Product::findOrFail($productId)->delete();
+        $product = Product::findOrFail($productId);
+        $product->delete();
         return redirect()->route('employee.inventory')->with('success', 'Xóa sản phẩm thành công!');
     }
 
@@ -240,10 +257,13 @@ class EmployeeController extends Controller
         if (!Auth::user()->can('support customer')) {
             abort(403);
         }
-        $validated = $request->validate(['reply' => 'required|string']);
-        // Logic lưu reply (cần bảng chat hoặc cột reply trong SupportTicket)
+        $validated = $request->validate(['reply' => 'required|string|max:2000']);
         $ticket = SupportTicket::findOrFail($ticketId);
-        $ticket->update(['status' => 'closed', 'reply' => $validated['reply']]); // Ví dụ
+        $ticket->update([
+            'reply' => $validated['reply'],
+            'status' => 'closed',
+            'employee_id' => Auth::id(),
+        ]);
         return redirect()->route('employee.support')->with('success', 'Phản hồi thành công!');
     }
 

@@ -14,6 +14,7 @@
     </div>
 
     <div class="row">
+        @can('manage inventory')
         <!-- Quản lý kho -->
         <div class="col-md-4 mb-4">
             <div class="card h-100 border-primary">
@@ -27,7 +28,9 @@
                 </div>
             </div>
         </div>
+        @endcan
 
+        @can('manage orders')
         <!-- Xử lý đơn hàng -->
         <div class="col-md-4 mb-4">
             <div class="card h-100 border-success">
@@ -41,7 +44,9 @@
                 </div>
             </div>
         </div>
+        @endcan
 
+        @can('support customer')
         <!-- Hỗ trợ khách hàng -->
         <div class="col-md-4 mb-4">
             <div class="card h-100 border-info">
@@ -55,6 +60,7 @@
                 </div>
             </div>
         </div>
+        @endcan
     </div>
 
     <!-- Statistics Cards -->
@@ -106,6 +112,61 @@
                 </div>
             </div>
         </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ $activePromotions }}</h4>
+                            <p class="mb-0">Khuyến mãi đang hoạt động</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-tags fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Biểu đồ trạng thái đơn hàng -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5>Thống kê trạng thái đơn hàng</h5>
+                    <canvas id="orderStatsChart"></canvas>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+@endsection
+
+@section('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('orderStatsChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Chờ xử lý', 'Đang xử lý', 'Hoàn thành'],
+            datasets: [{
+                label: 'Số lượng đơn hàng',
+                data: [{{ $orderStats['pending'] }}, {{ $orderStats['processing'] }}, {{ $orderStats['completed'] }}],
+                backgroundColor: ['#007bff', '#ffc107', '#28a745'],
+                borderColor: ['#0056b3', '#ffca28', '#218838'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
 @endsection

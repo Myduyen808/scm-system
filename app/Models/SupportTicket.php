@@ -10,8 +10,16 @@ class SupportTicket extends Model
     use HasFactory;
 
     protected $fillable = [
-        'subject',
-        'description',
-        'status',
+        'user_id', 'subject', 'description', 'status', 'reply', 'employee_id'
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function employee()
+    {
+        return $this->belongsTo(User::class, 'employee_id');
+    }
 }

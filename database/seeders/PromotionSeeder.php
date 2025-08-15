@@ -9,16 +9,25 @@ class PromotionSeeder extends Seeder
 {
     public function run()
     {
-        // Chỉ seed nếu bảng Promotions chưa có dữ liệu
-        if (Promotion::count() == 0) {
-            Promotion::create([
-                'name' => 'Giảm giá mùa hè',
+        $promotions = [
+            [
+                'name' => 'Khuyến mãi hè',
                 'discount' => 20.00,
-                'start_date' => now(),
-                'end_date' => now()->addMonth(),
-            ]);
+                'start_date' => now()->subDays(5),
+                'end_date' => now()->addDays(10),
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Black Friday',
+                'discount' => 50.00,
+                'start_date' => now()->addDays(20),
+                'end_date' => now()->addDays(25),
+                'is_active' => true,
+            ],
+        ];
 
-            Promotion::factory()->count(4)->create();
+        foreach ($promotions as $promotion) {
+            Promotion::create($promotion);
         }
     }
 }
