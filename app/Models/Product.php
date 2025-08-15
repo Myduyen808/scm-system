@@ -46,4 +46,9 @@ class Product extends Model
     {
         return !is_null($this->sale_price);
     }
+
+    public function promotions()
+    {
+        return $this->belongsToMany(Promotion::class, 'promotion_product');
+    }
 }

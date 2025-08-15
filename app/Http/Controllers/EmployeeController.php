@@ -31,6 +31,7 @@ class EmployeeController extends Controller
             'processing' => Order::where('status', 'processing')->count(),
             'completed' => Order::where('status', 'completed')->count(),
         ];
+
         return view('employee.dashboard', compact('totalProducts', 'pendingOrders', 'openTickets', 'activePromotions', 'orderStats'));
     }
 

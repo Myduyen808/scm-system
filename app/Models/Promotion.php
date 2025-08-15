@@ -9,18 +9,23 @@ class Promotion extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'name', 'discount', 'start_date', 'end_date', 'is_active'
-    ];
+    protected $fillable = ['name', 'start_date', 'end_date', 'discount', 'is_active'];
 
     protected $casts = [
         'discount' => 'decimal:2',
         'is_active' => 'boolean',
+        'start_date' => 'date',
+        'end_date' => 'date',
     ];
 
     // Kiểm tra khuyến mãi có đang hoạt động
     public function getIsValidAttribute()
     {
         return now()->between($this->start_date, $this->end_date) && $this->is_active;
+    }
+
+    public function products()
+    {
+        return $this->belongsToMany(Product::class, 'promotion_product');
     }
 }

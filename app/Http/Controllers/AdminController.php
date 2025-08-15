@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Hash; // vì bạn có dùng Hash::make()
 use Spatie\Permission\Models\Role;   // thêm dòng này
 use Illuminate\Support\Facades\Storage; // vì bạn có dùng Storage::exists()
 use App\Models\Setting;
+use App\Models\SupportTicket;
+use App\Models\Promotion;
+
 
 
 class AdminController extends Controller
@@ -27,22 +30,29 @@ class AdminController extends Controller
     {
         // Thống kê tổng quan
         $totalProducts = Product::count();
-        $totalOrders = Order::count();
+        $totalOrders = Order::count(); // Thêm totalOrders
+        $pendingOrders = Order::where('status', 'pending')->count();
+        $openTickets = SupportTicket::where('status', 'open')->count();
         $totalUsers = User::count();
-        $totalRevenue = Order::where('payment_status', 'paid')->sum('total_amount');
-
+        $totalRevenue = Order::where('status', 'completed')->sum('total_amount');
+        $activePromotions = Promotion::where('is_active', true)
+                                    ->whereDate('start_date', '<=', now())
+                                    ->whereDate('end_date', '>=', now())
+                                    ->count();
+        $orderStats = [
+            'pending' => Order::where('status', 'pending')->count(),
+            'processing' => Order::where('status', 'processing')->count(),
+            'completed' => Order::where('status', 'completed')->count(),
+        ];
         // Đơn hàng mới (hôm nay)
         $todayOrders = Order::whereDate('created_at', today())->count();
-
         // Sản phẩm sắp hết hàng (< 10 sản phẩm)
         $lowStockProducts = Product::where('stock_quantity', '<', 10)->count();
-
         // Top 5 sản phẩm bán chạy
         $topProducts = Product::withCount('orderItems')
             ->orderBy('order_items_count', 'desc')
             ->take(5)
             ->get();
-
         // Đơn hàng gần đây
         $recentOrders = Order::with('customer')
             ->orderBy('created_at', 'desc')
@@ -51,7 +61,8 @@ class AdminController extends Controller
 
         return view('admin.dashboard', compact(
             'totalProducts', 'totalOrders', 'totalUsers', 'totalRevenue',
-            'todayOrders', 'lowStockProducts', 'topProducts', 'recentOrders'
+            'todayOrders', 'lowStockProducts', 'topProducts', 'recentOrders',
+            'activePromotions', 'orderStats', 'openTickets','pendingOrders'
         ));
     }
 
@@ -458,6 +469,79 @@ class AdminController extends Controller
         $setting->updateOrCreate(['id' => $setting->id ?? null], $validated);
 
         return redirect()->route('settings')->with('success', 'Cài đặt đã được cập nhật!');
+    }
+    public function promotions()
+    {
+        $promotions = Promotion::with(['products'])
+                            ->whereDate('end_date', '>=', now())
+                            ->orWhere('is_active', true)
+                            ->orderBy('start_date', 'desc')
+                            ->paginate(10);
+
+        return view('admin.promotions.index', compact('promotions'));
+    }
+
+    public function create()
+    {
+        return view('admin.promotions.create');
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after:start_date',
+            'discount' => 'required|numeric|min:0|max:100',
+            'is_active' => 'required|boolean',
+        ]);
+
+        Promotion::create([
+            'name' => $request->name,
+            'start_date' => $request->start_date,
+            'end_date' => $request->end_date,
+            'discount' => $request->discount,
+            'is_active' => $request->is_active,
+        ]);
+
+        return redirect()->route('admin.promotions')->with('success', 'Khuyến mãi đã được thêm thành công.');
+    }
+
+    public function edit($id)
+    {
+        $promotion = Promotion::findOrFail($id);
+        return view('admin.promotions.edit', compact('promotion'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $promotion = Promotion::findOrFail($id);
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after:start_date',
+            'discount' => 'required|numeric|min:0|max:100',
+            'is_active' => 'required|boolean',
+        ]);
+
+        $promotion->update([
+            'name' => $request->name,
+            'start_date' => $request->start_date,
+            'end_date' => $request->end_date,
+            'discount' => $request->discount,
+            'is_active' => $request->is_active,
+        ]);
+
+        return redirect()->route('admin.promotions')->with('success', 'Khuyến mãi đã được cập nhật thành công.');
+    }
+
+    public function destroy($id)
+    {
+        $promotion = Promotion::findOrFail($id);
+        $promotion->delete();
+
+        return redirect()->route('admin.promotions')->with('success', 'Khuyến mãi đã được xóa thành công.');
     }
 
 

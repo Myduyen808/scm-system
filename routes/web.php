@@ -80,7 +80,15 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     // ==== CÀI ĐẶT HỆ THỐNG (SETTINGS) ====
     Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
     Route::post('/settings', [AdminController::class, 'updateSettings'])->name('settings.update');
-});
+
+    // Quản lý khuyến mãi
+    Route::get('/promotions', [AdminController::class, 'promotions'])->name('promotions');
+    Route::get('/promotions/create', [AdminController::class, 'create'])->name('promotions.create');
+    Route::post('/promotions', [AdminController::class, 'store'])->name('promotions.store');
+    Route::get('/promotions/{promotion}/edit', [AdminController::class, 'edit'])->name('promotions.edit');
+    Route::put('/promotions/{promotion}', [AdminController::class, 'update'])->name('promotions.update');
+    Route::delete('/promotions/{promotion}', [AdminController::class, 'destroy'])->name('promotions.destroy');
+    });
 
 
 // Employee routes

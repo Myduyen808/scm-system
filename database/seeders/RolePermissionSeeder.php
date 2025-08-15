@@ -11,58 +11,75 @@ class RolePermissionSeeder extends Seeder
 {
     public function run()
     {
+        // Xóa cache quyền để đảm bảo dữ liệu mới
+        app()->make(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
         // Tạo quyền (permissions)
         $permissions = [
-            // Admin permissions
-            'manage inventory', 'manage orders', 'manage users', 'view reports', 'manage settings',
-            // Employee permissions
-            'manage inventory', 'manage orders', 'manage promotions', 'support customer', 'view reports',
-            // Customer permissions
-            'view products', 'place orders',
-            // Supplier permissions
+            'manage inventory',
+            'manage orders',
+            'manage users',
+            'view reports',
+            'manage settings',
+            'manage promotions',
+            'support customer',
+            'view products',
+            'place orders',
             'update stock',
         ];
 
-        foreach ($permissions as $permission) {
-            Permission::create(['name' => $permission]);
+        foreach (array_unique($permissions) as $permission) {
+            Permission::firstOrCreate(['name' => $permission]);
         }
 
         // Tạo vai trò và gán quyền
-        $adminRole = Role::create(['name' => 'admin']);
-        $adminRole->givePermissionTo($permissions); // Admin có tất cả quyền
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $adminRole->syncPermissions($permissions); // Admin có tất cả quyền
 
-        $employeeRole = Role::create(['name' => 'employee']);
-        $employeeRole->givePermissionTo(['manage inventory', 'manage orders', 'manage promotions', 'support customer', 'view reports']);
+        $employeeRole = Role::firstOrCreate(['name' => 'employee']);
+        $employeeRole->syncPermissions(['manage inventory', 'manage orders', 'manage promotions', 'support customer', 'view reports']);
 
-        $customerRole = Role::create(['name' => 'customer']);
-        $customerRole->givePermissionTo(['view products', 'place orders']);
+        $customerRole = Role::firstOrCreate(['name' => 'customer']);
+        $customerRole->syncPermissions(['view products', 'place orders']);
 
-        $supplierRole = Role::create(['name' => 'supplier']);
-        $supplierRole->givePermissionTo(['update stock']);
+        $supplierRole = Role::firstOrCreate(['name' => 'supplier']);
+        $supplierRole->syncPermissions(['update stock']);
 
         // Tạo user và gán role
-        User::create([
-            'name' => 'Admin User',
-            'email' => 'admin@example.com',
-            'password' => bcrypt('password'),
-        ])->assignRole('admin');
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@example.com'],
+            [
+                'name' => 'Admin User',
+                'password' => bcrypt('password'),
+            ]
+        );
+        $admin->syncRoles(['admin']);
 
-        User::create([
-            'name' => 'Employee User',
-            'email' => 'employee@example.com',
-            'password' => bcrypt('password'),
-        ])->assignRole('employee');
+        $employee = User::firstOrCreate(
+            ['email' => 'employee@example.com'],
+            [
+                'name' => 'Employee User',
+                'password' => bcrypt('password'),
+            ]
+        );
+        $employee->syncRoles(['employee']);
 
-        User::create([
-            'name' => 'Customer User',
-            'email' => 'customer@example.com',
-            'password' => bcrypt('password'),
-        ])->assignRole('customer');
+        $customer = User::firstOrCreate(
+            ['email' => 'customer@example.com'],
+            [
+                'name' => 'Customer User',
+                'password' => bcrypt('password'),
+            ]
+        );
+        $customer->syncRoles(['customer']);
 
-        User::create([
-            'name' => 'Supplier User',
-            'email' => 'supplier@example.com',
-            'password' => bcrypt('password'),
-        ])->assignRole('supplier');
+        $supplier = User::firstOrCreate(
+            ['email' => 'supplier@example.com'],
+            [
+                'name' => 'Supplier User',
+                'password' => bcrypt('password'),
+            ]
+        );
+        $supplier->syncRoles(['supplier']);
     }
-}
+}       
