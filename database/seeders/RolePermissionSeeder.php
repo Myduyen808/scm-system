@@ -1,74 +1,68 @@
 <?php
+
 namespace Database\Seeders;
+
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use App\Models\User;
 
 class RolePermissionSeeder extends Seeder
 {
     public function run()
     {
-        // Tạo vai trò
-        $adminRole = Role::create(['name' => 'admin']);
-        $employeeRole = Role::create(['name' => 'employee']);
-        $customerRole = Role::create(['name' => 'customer']);
-
-        // Tạo quyền
+        // Tạo quyền (permissions)
         $permissions = [
-            'manage inventory', // Quản lý kho
-            'manage orders',    // Quản lý đơn hàng
-            'manage promotions', // Quản lý khuyến mãi
-            'support customer',  // Hỗ trợ khách hàng
-            'view reports',     // Xem báo cáo
-            'view products',    // Xem sản phẩm
-            'place order',      // Đặt hàng
-            'make payment',     // Thanh toán
-            'track order',      // Theo dõi đơn hàng
-            'review product',   // Đánh giá sản phẩm
-            'submit complaint', // Gửi khiếu nại
-            'manage supplier products', // Quản lý sản phẩm nhà cung cấp
-            'track supplier orders',   // Theo dõi đơn hàng nhà cung cấp
-            'respond to requests',     // Phản hồi yêu cầu nhập hàng
+            // Admin permissions
+            'manage inventory', 'manage orders', 'manage users', 'view reports', 'manage settings',
+            // Employee permissions
+            'manage inventory', 'manage orders', 'manage promotions', 'support customer', 'view reports',
+            // Customer permissions
+            'view products', 'place orders',
+            // Supplier permissions
+            'update stock',
         ];
 
         foreach ($permissions as $permission) {
             Permission::create(['name' => $permission]);
         }
 
-        // Gán quyền cho vai trò
-        $adminRole->givePermissionTo([
-            'manage inventory', 'manage orders', 'manage promotions',
-            'support customer', 'view reports'
-        ]);
+        // Tạo vai trò và gán quyền
+        $adminRole = Role::create(['name' => 'admin']);
+        $adminRole->givePermissionTo($permissions); // Admin có tất cả quyền
 
-        $employeeRole->givePermissionTo([
-            'manage inventory', 'manage orders', 'manage promotions',
-            'support customer', 'view reports'
-        ]);
+        $employeeRole = Role::create(['name' => 'employee']);
+        $employeeRole->givePermissionTo(['manage inventory', 'manage orders', 'manage promotions', 'support customer', 'view reports']);
 
-        $customerRole->givePermissionTo([
-            'view products', 'place order', 'make payment',
-            'track order', 'review product', 'submit complaint'
-        ]);
+        $customerRole = Role::create(['name' => 'customer']);
+        $customerRole->givePermissionTo(['view products', 'place orders']);
 
         $supplierRole = Role::create(['name' => 'supplier']);
-        $supplierRole->givePermissionTo([
-            'manage supplier products', 'track supplier orders', 'respond to requests'
-        ]);
+        $supplierRole->givePermissionTo(['update stock']);
 
-        //  Tạo role customer nếu chưa tồn tại
-        if (!Role::where('name', 'customer')->exists()) {
-            $customerRole = Role::create(['name' => 'customer']);
-            $customerRole->givePermissionTo([
-                'view products',
-                'place order',
-                'make payment',
-                'track order',
-                'review product',
-                'submit complaint'
-            ]);
-    }
-    
-    }
+        // Tạo user và gán role
+        User::create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'password' => bcrypt('password'),
+        ])->assignRole('admin');
 
+        User::create([
+            'name' => 'Employee User',
+            'email' => 'employee@example.com',
+            'password' => bcrypt('password'),
+        ])->assignRole('employee');
+
+        User::create([
+            'name' => 'Customer User',
+            'email' => 'customer@example.com',
+            'password' => bcrypt('password'),
+        ])->assignRole('customer');
+
+        User::create([
+            'name' => 'Supplier User',
+            'email' => 'supplier@example.com',
+            'password' => bcrypt('password'),
+        ])->assignRole('supplier');
+    }
 }

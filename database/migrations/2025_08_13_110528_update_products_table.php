@@ -12,8 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            // đổi tên cột price thành regular_price
-            $table->renameColumn('price', 'regular_price');
+            // Chỉ đổi tên nếu cột price tồn tại
+            if (Schema::hasColumn('products', 'price')) {
+                $table->renameColumn('price', 'regular_price');
+            }
 
             $table->decimal('sale_price', 10, 2)->nullable();
             $table->string('image')->nullable();
@@ -29,7 +31,10 @@ return new class extends Migration
     public function down()
     {
         Schema::table('products', function (Blueprint $table) {
-            $table->renameColumn('regular_price', 'price');
+            // Chỉ đổi tên nếu cột regular_price tồn tại
+            if (Schema::hasColumn('products', 'regular_price')) {
+                $table->renameColumn('regular_price', 'price');
+            }
 
             $table->dropColumn(['sale_price', 'image', 'sku', 'stock_quantity', 'supplier_id']);
         });

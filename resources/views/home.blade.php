@@ -116,7 +116,7 @@
                                 Còn {{ $product->inventory->stock ?? 0 }} sản phẩm
                             </small>
                             <div class="btn-group">
-                                <a href="{{ route('product.detail', $product->id) }}" class="btn btn-outline-primary btn-sm">
+                                <a href="#" class="btn btn-outline-primary btn-sm">
                                     <i class="fas fa-eye"></i>
                                 </a>
                                 @if($product->inventory && $product->inventory->stock > 0)
@@ -162,31 +162,13 @@
             </div>
             <div class="col-md-3 mb-4 fade-in">
                 <div class="card border-0 bg-success text-white p-4">
-                    <!-- Thay thế đoạn code từ dòng ~165 -->
-                        <div class="col-md-3 mb-4 fade-in">
-                            <div class="card border-0 bg-success text-white p-4">
-                                <h3 class="fw-bold">{{ $orderCount }}</h3>
-                                <p class="mb-0">Đơn hàng</p>
-                            </div>
-                        </div>
-                        <div class="col-md-3 mb-4 fade-in">
-                            <div class="card border-0 bg-info text-white p-4">
-                                <h3 class="fw-bold">{{ $userCount }}</h3>
-                                <p class="mb-0">Người dùng</p>
-                            </div>
-                        </div>
-                        <div class="col-md-3 mb-4 fade-in">
-                            <div class="card border-0 bg-primary text-white p-4">
-                                <h3 class="fw-bold">{{ $productCount }}</h3>
-                                <p class="mb-0">Sản phẩm</p>
-                            </div>
-                        </div>
+                    <h3 class="fw-bold">{{ $orderCount }}</h3>
                     <p class="mb-0">Đơn hàng</p>
                 </div>
             </div>
             <div class="col-md-3 mb-4 fade-in">
                 <div class="card border-0 bg-info text-white p-4">
-                    <h3 class="fw-bold">{{ \App\Models\User::count() }}</h3>
+                    <h3 class="fw-bold">{{ $userCount }}</h3>
                     <p class="mb-0">Người dùng</p>
                 </div>
             </div>
@@ -199,4 +181,5 @@
         </div>
     </div>
 </section>
+
 @endsection

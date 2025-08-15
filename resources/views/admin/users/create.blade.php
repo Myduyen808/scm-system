@@ -10,7 +10,7 @@
                 <h1 class="mb-0">
                     <i class="fas fa-user-plus text-primary"></i> Thêm Người Dùng
                 </h1>
-                <a href="{{ route('users') }}" class="btn btn-outline-secondary">
+                <a href="{{ route('admin.users') }}" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left"></i> Quay lại
                 </a>
             </div>
@@ -18,7 +18,7 @@
     </div>
     <div class="row">
         <div class="col-lg-6">
-            <form action="{{ route('users.store') }}" method="POST">
+            <form action="{{ route('admin.users.store') }}" method="POST">
                 @csrf
                 <div class="card">
                     <div class="card-header">

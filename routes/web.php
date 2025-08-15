@@ -87,8 +87,27 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 Route::middleware(['auth', 'role:employee'])->prefix('employee')->group(function () {
     Route::get('/dashboard', [EmployeeController::class, 'dashboard'])->name('employee.dashboard');
     Route::get('/inventory', [EmployeeController::class, 'inventory'])->name('employee.inventory');
+    Route::patch('/inventory/{product}', [EmployeeController::class, 'updateInventory'])->name('employee.inventory.update');
+    Route::get('/inventory/create', [EmployeeController::class, 'createInventory'])->name('employee.inventory.create');
+    Route::post('/inventory', [EmployeeController::class, 'storeInventory'])->name('employee.inventory.store');
+    Route::get('/inventory/{product}', [EmployeeController::class, 'showProduct'])->name('employee.inventory.show');
+    Route::delete('/inventory/{product}', [EmployeeController::class, 'destroyInventory'])->name('employee.inventory.destroy');
     Route::get('/orders', [EmployeeController::class, 'orders'])->name('employee.orders');
+    Route::patch('/orders/{order}/status', [EmployeeController::class, 'updateOrderStatus'])->name('employee.orders.update-status');
+    Route::get('/orders/{order}', [EmployeeController::class, 'showOrder'])->name('employee.orders.show');
+    Route::post('/orders/{order}/cancel', [EmployeeController::class, 'cancelOrder'])->name('employee.orders.cancel');
+    Route::get('/promotions', [EmployeeController::class, 'promotions'])->name('employee.promotions');
+    Route::get('/promotions/create', [EmployeeController::class, 'createPromotion'])->name('employee.promotions.create');
+    Route::post('/promotions', [EmployeeController::class, 'storePromotion'])->name('employee.promotions.store');
+    Route::get('/promotions/{promotion}/edit', [EmployeeController::class, 'editPromotion'])->name('employee.promotions.edit');
+    Route::put('/promotions/{promotion}', [EmployeeController::class, 'updatePromotion'])->name('employee.promotions.update');
+    Route::delete('/promotions/{promotion}', [EmployeeController::class, 'destroyPromotion'])->name('employee.promotions.destroy');
+    Route::get('/requests', [EmployeeController::class, 'requests'])->name('employee.requests');
+    Route::post('/requests/{request}/process', [EmployeeController::class, 'processRequest'])->name('employee.requests.process');
     Route::get('/support', [EmployeeController::class, 'support'])->name('employee.support');
+    Route::get('/support/{ticket}/reply', [EmployeeController::class, 'replySupportTicket'])->name('employee.support.reply');
+    Route::post('/support/{ticket}/reply', [EmployeeController::class, 'storeSupportReply'])->name('employee.support.store-reply');
+    Route::get('/reports', [EmployeeController::class, 'reports'])->name('employee.reports');
 });
 
 // Customer routes
