@@ -50,9 +50,25 @@
                                                 @endif
                                             </td>
                                             <td>
-                                                @foreach ($promotion->products as $product)
-                                                    {{ $product->name }}<br>
-                                                @endforeach
+                                                <div class="product-apply-section">
+                                                    <!-- Hiển thị sản phẩm hiện tại -->
+                                                    @foreach ($promotion->products as $product)
+                                                        <span class="badge bg-info me-1">{{ $product->name }}</span>
+                                                    @endforeach
+                                                    <!-- Dropdown chọn sản phẩm -->
+                                                    <select class="form-select form-select-sm mt-2 apply-product"
+                                                            data-promotion-id="{{ $promotion->id }}"
+                                                            style="width: 200px; display: inline-block;">
+                                                        <option value="">Chọn sản phẩm</option>
+                                                        @foreach($availableProducts ?? [] as $product)
+                                                            <option value="{{ $product->id }}">{{ $product->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    <!-- Nút áp dụng -->
+                                                    <button class="btn btn-sm btn-success mt-2 apply-product-btn"
+                                                            data-promotion-id="{{ $promotion->id }}"
+                                                            style="display: none;">Áp dụng</button>
+                                                </div>
                                             </td>
                                             <td>
                                                 <a href="{{ route('admin.promotions.edit', $promotion->id) }}" class="btn btn-sm btn-warning">
@@ -83,4 +99,50 @@
         </div>
     </div>
 </div>
+@endsection
+
+@section('scripts')
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Hiển thị nút "Áp dụng" khi chọn sản phẩm
+    $('.apply-product').on('change', function() {
+        const $select = $(this);
+        const $button = $select.next('.apply-product-btn');
+        if ($select.val()) {
+            $button.show();
+        } else {
+            $button.hide();
+        }
+    });
+
+    // Xử lý áp dụng sản phẩm
+    $('.apply-product-btn').on('click', function() {
+        const promotionId = $(this).data('promotion-id');
+        const productId = $(this).prev('.apply-product').val();
+
+        if (!productId) {
+            alert('Vui lòng chọn một sản phẩm!');
+            return;
+        }
+
+        $.ajax({
+            url: `/admin/promotions/${promotionId}/apply-product`,
+            method: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}',
+                product_id: productId
+            },
+            success: function(response) {
+                alert('Áp dụng sản phẩm thành công!');
+                location.reload(); // Tải lại trang để cập nhật
+            },
+            error: function(xhr) {
+                alert('Có lỗi xảy ra: ' + (xhr.responseJSON?.message || 'Không thể áp dụng sản phẩm!'));
+            }
+        });
+    });
+});
+</script>
 @endsection

@@ -34,4 +34,9 @@ class Order extends Model
     {
         return 'ORD' . date('Ymd') . str_pad(self::count() + 1, 4, '0', STR_PAD_LEFT);
     }
+
+
+    
+
+
 }

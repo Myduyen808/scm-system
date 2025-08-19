@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\InventoryImport;
+use App\Exports\OrdersExport;
 use App\Models\Product;
 use App\Models\Order;
 use App\Models\User;
@@ -14,7 +17,9 @@ use Illuminate\Support\Facades\Storage; // vì bạn có dùng Storage::exists()
 use App\Models\Setting;
 use App\Models\SupportTicket;
 use App\Models\Promotion;
-
+use Illuminate\Support\Facades\Artisan;
+use Spatie\Activitylog\Models\Activity;
+// use App\Models\Supplier;
 
 
 class AdminController extends Controller
@@ -30,7 +35,7 @@ class AdminController extends Controller
     {
         // Thống kê tổng quan
         $totalProducts = Product::count();
-        $totalOrders = Order::count(); // Thêm totalOrders
+        $totalOrders = Order::count();
         $pendingOrders = Order::where('status', 'pending')->count();
         $openTickets = SupportTicket::where('status', 'open')->count();
         $totalUsers = User::count();
@@ -39,20 +44,41 @@ class AdminController extends Controller
                                     ->whereDate('start_date', '<=', now())
                                     ->whereDate('end_date', '>=', now())
                                     ->count();
+
+        $ticketToAssign = SupportTicket::where('status', 'open')->first();
+
+        // Thống kê trạng thái đơn hàng
         $orderStats = [
             'pending' => Order::where('status', 'pending')->count(),
             'processing' => Order::where('status', 'processing')->count(),
             'completed' => Order::where('status', 'completed')->count(),
         ];
-        // Đơn hàng mới (hôm nay)
+
+        // Doanh thu theo tháng (biểu đồ)
+        $monthlyRevenue = Order::selectRaw('MONTH(created_at) as month, SUM(total_amount) as revenue')
+            ->where('status', 'completed')
+            ->groupBy('month')
+            ->orderBy('month')
+            ->pluck('revenue', 'month'); // Trả về collection dạng [month => revenue]
+
+        // Chuẩn bị dữ liệu cho Chart.js (tháng 1-12)
+        $revenueData = [];
+        for ($i = 1; $i <= 12; $i++) {
+            $revenueData[] = $monthlyRevenue[$i] ?? 0; // Nếu tháng không có doanh thu thì 0
+        }
+
+        // Đơn hàng mới hôm nay
         $todayOrders = Order::whereDate('created_at', today())->count();
-        // Sản phẩm sắp hết hàng (< 10 sản phẩm)
+
+        // Sản phẩm sắp hết hàng (<10 sản phẩm)
         $lowStockProducts = Product::where('stock_quantity', '<', 10)->count();
+
         // Top 5 sản phẩm bán chạy
         $topProducts = Product::withCount('orderItems')
             ->orderBy('order_items_count', 'desc')
             ->take(5)
             ->get();
+
         // Đơn hàng gần đây
         $recentOrders = Order::with('customer')
             ->orderBy('created_at', 'desc')
@@ -62,7 +88,8 @@ class AdminController extends Controller
         return view('admin.dashboard', compact(
             'totalProducts', 'totalOrders', 'totalUsers', 'totalRevenue',
             'todayOrders', 'lowStockProducts', 'topProducts', 'recentOrders',
-            'activePromotions', 'orderStats', 'openTickets','pendingOrders'
+            'activePromotions', 'orderStats', 'openTickets', 'pendingOrders',
+            'ticketToAssign', 'revenueData'
         ));
     }
 
@@ -73,8 +100,10 @@ class AdminController extends Controller
 
         // Tìm kiếm
         if ($request->search) {
-            $query->where('name', 'like', '%' . $request->search . '%')
+            $query->where(function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->search . '%')
                   ->orWhere('sku', 'like', '%' . $request->search . '%');
+            });
         }
 
         // Lọc theo trạng thái
@@ -246,14 +275,15 @@ class AdminController extends Controller
     // ==================== QUẢN LÝ NGƯỜI DÙNG ====================
     public function users(Request $request)
     {
-        $query = User::with('roles');
+        $query = User::with('roles'); // Tải quan hệ roles
         if ($request->search) {
             $query->where('name', 'like', '%' . $request->search . '%')
                 ->orWhere('email', 'like', '%' . $request->search . '%');
         }
         $users = $query->orderBy('created_at', 'desc')->paginate(10);
-        $roles = Role::all(); // lấy danh sách role
-        return view('admin.users.index', compact('users'));
+        $roles = Role::all(); // Lấy tất cả vai trò để hiển thị trong dropdown
+
+        return view('admin.users.index', compact('users', 'roles'));
     }
 
     public function createUser()
@@ -478,7 +508,29 @@ class AdminController extends Controller
                             ->orderBy('start_date', 'desc')
                             ->paginate(10);
 
-        return view('admin.promotions.index', compact('promotions'));
+        // Lấy tất cả sản phẩm chưa được áp dụng bất kỳ khuyến mãi nào
+        $availableProducts = Product::whereDoesntHave('promotions')->get();
+
+        return view('admin.promotions.index', compact('promotions', 'availableProducts'));
+    }
+
+    public function applyProduct(Request $request, $promotionId)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+        ]);
+
+        $promotion = Promotion::findOrFail($promotionId);
+
+        // Kiểm tra nếu sản phẩm đã được áp dụng cho bất kỳ khuyến mãi nào
+        $product = Product::findOrFail($request->product_id);
+        if ($product->promotions()->exists()) {
+            return response()->json(['message' => 'Sản phẩm đã được áp dụng cho một khuyến mãi khác!'], 400);
+        }
+
+        $promotion->products()->attach($request->product_id);
+
+        return response()->json(['message' => 'Áp dụng sản phẩm thành công!']);
     }
 
     public function create()
@@ -544,5 +596,70 @@ class AdminController extends Controller
         return redirect()->route('admin.promotions')->with('success', 'Khuyến mãi đã được xóa thành công.');
     }
 
+    public function importInventory(Request $request)
+    {
+        $request->validate(['file' => 'required|file|mimes:xlsx,xls']);
+        Excel::import(new InventoryImport, $request->file('file'));
+        return redirect()->route('admin.inventory')->with('success', 'Nhập dữ liệu kho thành công!');
+    }
+
+
+    public function forecastInventory()
+    {
+        $products = Product::all();
+        $forecasts = [];
+        foreach ($products as $product) {
+            // Logic đơn giản: Dự báo tồn kho tăng 10% dựa trên lịch sử (có thể mở rộng bằng AI sau)
+            $forecast = $product->stock_quantity * 1.1; // Ví dụ
+            $forecasts[] = ['product' => $product, 'forecast' => $forecast];
+        }
+        return view('admin.inventory.forecast', compact('forecasts'));
+    }
+    public function exportOrders()
+    {
+        return Excel::download(new OrdersExport, 'orders_' . now()->format('Ymd_His') . '.xlsx');
+    }
+    public function orderStats()
+    {
+        $totalRevenue = Order::where('status', 'completed')->sum('total_amount');
+        $monthlyRevenue = Order::selectRaw('MONTH(created_at) as month, SUM(total_amount) as revenue')
+            ->where('status', 'completed')
+            ->groupBy('month')
+            ->get();
+
+        return view('admin.orders.stats', compact('totalRevenue', 'monthlyRevenue'));
+    }
+
+
+    public function assignTicket($ticketId, Request $request)
+    {
+        $request->validate([
+            'assigned_to' => 'required|exists:users,id'
+        ]);
+
+        $ticket = SupportTicket::findOrFail($ticketId);
+        $ticket->update([
+            'assigned_to' => $request->assigned_to,
+            'status' => 'assigned' // Thêm trạng thái để đánh dấu ticket đã được phân công
+        ]);
+
+        return redirect()->route('admin.tickets')->with('success', 'Phân công ticket thành công!');
+    }
+    public function tickets()
+    {
+        $tickets = SupportTicket::with('user', 'assignedTo')->get();
+        return view('admin.tickets.index', compact('tickets'));
+    }
+
+    public function backupDatabase()
+    {
+        Artisan::call('backup:run');
+        return redirect()->back()->with('success', 'Sao lưu thành công!');
+    }
+    public function activityLogs()
+    {
+        $logs = Activity::orderBy('created_at', 'desc')->paginate(20);
+        return view('admin.logs', compact('logs'));
+    }
 
 }

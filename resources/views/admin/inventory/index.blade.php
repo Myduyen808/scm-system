@@ -10,12 +10,17 @@
                 <h1 class="mb-0">
                     <i class="fas fa-warehouse text-primary"></i> Quản Lý Kho
                 </h1>
+                <div class="btn-group">
+                <a href="{{ route('admin.inventory.forecast') }}" class="btn btn-info">
+                    <i class="fas fa-chart-line"></i> Dự báo tồn kho
+                </a>
                 <a href="{{ route('admin.inventory.create') }}" class="btn btn-primary">
                     <i class="fas fa-plus"></i> Thêm Sản Phẩm
                 </a>
             </div>
         </div>
     </div>
+</div>
 
     <!-- Filters -->
     <div class="card mb-4">
@@ -61,6 +66,15 @@
             </form>
         </div>
     </div>
+
+    <!-- Import Excel Form -->
+    <form action="{{ route('admin.inventory.import') }}" method="POST" enctype="multipart/form-data" class="mb-4">
+        @csrf
+        <div class="input-group">
+            <input type="file" name="file" class="form-control" accept=".xlsx,.xls" required>
+            <button type="submit" class="btn btn-primary">Nhập dữ liệu hàng loạt</button>
+        </div>
+    </form>
 
     <!-- Products Table -->
     <div class="card">

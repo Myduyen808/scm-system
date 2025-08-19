@@ -4,23 +4,24 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class Product extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $fillable = [
         'name', 'description', 'regular_price', 'sale_price',
-        'image', 'sku', 'stock_quantity', 'is_active', 'supplier_id'
+        'image', 'sku', 'stock_quantity', 'is_active', 'supplier_id','current_price','is_approved'
     ];
 
     protected $casts = [
         'regular_price' => 'decimal:2',
-        'sale_price' => 'decimal:2',
-        'is_active' => 'boolean',
+        'sale_price'    => 'decimal:2',
+        'is_active'     => 'boolean',
     ];
 
-    // Relationships
     public function supplier()
     {
         return $this->belongsTo(User::class, 'supplier_id');
@@ -31,15 +32,31 @@ class Product extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function orders()
+    {
+        return $this->belongsToMany(Order::class, 'order_items')->withPivot('quantity', 'price');
+    }
+
     public function cartItems()
     {
         return $this->hasMany(Cart::class);
     }
 
-    // Accessors
+    public function promotions()
+    {
+        return $this->belongsToMany(Promotion::class, 'promotion_product');
+    }
+
+// Accessor cho giá hiện tại (ưu tiên sale_price nếu có)
     public function getCurrentPriceAttribute()
     {
         return $this->sale_price ?? $this->regular_price;
+    }
+
+    // Scope để chỉ lấy sản phẩm approved và active
+    public function scopeApproved($query)
+    {
+        return $query->where('is_approved', true)->where('is_active', true);
     }
 
     public function getIsOnSaleAttribute()
@@ -47,8 +64,24 @@ class Product extends Model
         return !is_null($this->sale_price);
     }
 
-    public function promotions()
+    public function scopeForSupplier($query, $supplierId)
     {
-        return $this->belongsToMany(Promotion::class, 'promotion_product');
+        return $query->where('supplier_id', $supplierId);
     }
+
+    public function inventory()
+        {
+            return $this->hasOne(Inventory::class);
+        }
+
+
+    // Cái này là bắt buộc khi dùng LogsActivity
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // log hết các field fillable
+            ->useLogName('product')
+            ->setDescriptionForEvent(fn(string $eventName) => "Product has been {$eventName}");
+    }
+
 }

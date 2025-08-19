@@ -3,6 +3,7 @@
 @section('title', 'Admin Dashboard')
 
 @section('content')
+
 <div class="container">
     <div class="row">
         <div class="col-md-12">
@@ -60,6 +61,20 @@
                 </div>
             </div>
         </div>
+        @endcan
+
+        @can('approve products')
+            <!-- Phê duyệt sản phẩm -->
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-warning">
+                    <div class="card-body text-center">
+                        <i class="fas fa-check-circle fa-3x text-warning mb-3"></i>
+                        <h5 class="card-title">Phê duyệt sản phẩm</h5>
+                        <p class="card-text">Duyệt sản phẩm từ nhà cung cấp</p>
+                        <a href="{{ route('admin.pending.products') }}" class="btn btn-warning btn-block mt-2">Xem tất cả</a>
+                    </div>
+                </div>
+            </div>
         @endcan
 
         @can('manage inventory')
@@ -125,6 +140,44 @@
             </div>
         </div>
         @endcan
+
+    @can('manage tickets')
+        <!-- Quản lý ticket -->
+        @if($ticketToAssign)
+            <form action="{{ route('admin.tickets.assign', ['id' => $ticketToAssign->id]) }}" method="POST">
+                @csrf
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 border-danger">
+                        <div class="card-body text-center">
+                            <i class="fas fa-ticket-alt fa-3x text-danger mb-3"></i>
+                            <h5 class="card-title">Quản lý ticket</h5>
+                            <p class="card-text">Phân công ticket cho nhân viên</p>
+                            <select name="assigned_to" class="form-control mb-2" required>
+                                @foreach(\App\Models\User::role('employee')->get() as $employee)
+                                    <option value="{{ $employee->id }}">{{ $employee->name }}</option>
+                                @endforeach
+                            </select>
+                            <button type="submit" class="btn btn-danger btn-block">
+                                <i class="fas fa-arrow-right"></i> Phân công
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        @else
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-secondary">
+                    <div class="card-body text-center">
+                        <i class="fas fa-ticket-alt fa-3x text-secondary mb-3"></i>
+                        <h5 class="card-title">Quản lý ticket</h5>
+                        <p class="card-text">Hiện không có ticket nào để phân công</p>
+                        <button class="btn btn-secondary btn-block" disabled>Chưa có ticket</button>
+                    </div>
+                </div>
+            </div>
+        @endif
+    @endcan
+
     </div>
 
     <!-- Statistics Cards -->
@@ -327,6 +380,17 @@
             </div>
         </div>
     </div>
+    <!-- Biểu đồ doanh thu theo tháng -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5>Doanh thu theo tháng</h5>
+                    <canvas id="revenueChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 @endsection
 
@@ -337,19 +401,29 @@
     new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['Chờ xử lý', 'Đang xử lý', 'Hoàn thành'],
+            labels: {!! json_encode(['Chờ xử lý', 'Đang xử lý', 'Hoàn thành']) !!},
             datasets: [{
                 label: 'Số lượng đơn hàng',
-                data: [{{ $orderStats['pending'] }}, {{ $orderStats['processing'] }}, {{ $orderStats['completed'] }}],
+                data: {!! json_encode([$orderStats['pending'], $orderStats['processing'], $orderStats['completed']]) !!},
                 backgroundColor: ['#007bff', '#ffc107', '#28a745'],
                 borderColor: ['#0056b3', '#ffca28', '#218838'],
                 borderWidth: 1
             }]
         },
         options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
             scales: {
                 y: {
-                    beginAtZero: true
+                    beginAtZero: true,
+                    ticks: {
+                        precision:0 // loại bỏ số thập phân
+                    }
                 }
             }
         }

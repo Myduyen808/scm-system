@@ -21,6 +21,7 @@
     <table class="table table-striped">
         <thead>
             <tr>
+                <th>Hình ảnh</th>
                 <th>Tên sản phẩm</th>
                 <th>Số lượng tồn</th>
                 <th>Thao tác</th>
@@ -29,6 +30,13 @@
         <tbody>
             @forelse($products as $product)
             <tr>
+                <td>
+                    @if($product->image)
+                        <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" style="width: 100px; height: auto;">
+                    @else
+                        <span>Không có hình ảnh</span>
+                    @endif
+                </td>
                 <td>{{ $product->name }}</td>
                 <td>
                     <form action="{{ route('employee.inventory.update', $product) }}" method="POST" class="d-inline">
@@ -47,7 +55,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="3" class="text-center">Không có sản phẩm</td>
+                <td colspan="4" class="text-center">Không có sản phẩm</td>
             </tr>
             @endforelse
         </tbody>

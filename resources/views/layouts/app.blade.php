@@ -224,7 +224,7 @@
                     <p class="mb-0">Hệ thống quản lý chuỗi cung ứng hiện đại và hiệu quả.</p>
                 </div>
                 <div class="col-md-6 text-md-end">
-                    <p class="mb-0">&copy; 2025 SCM System. Phát triển bởi Laravel {{ app()->version() }}</p>
+                    <p class="mb-0">&copy; 2025 SCM System. Phát triển bởi duyenb2203435@student.ctu.edu.vn {{ app()->version() }}</p>
                 </div>
             </div>
         </div>

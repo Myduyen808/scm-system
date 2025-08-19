@@ -54,6 +54,15 @@
     <!-- Orders Table -->
     <div class="card">
         <div class="card-body">
+            <!-- Export Button -->
+            <div class="mb-3">
+                <a href="{{ route('admin.orders.export') }}" class="btn btn-success">
+                    <i class="fas fa-file-excel"></i> Xuất danh sách đơn hàng (Excel)
+                </a>
+                <a href="{{ route('admin.orders.stats') }}" class="btn btn-info">
+                    <i class="fas fa-chart-line"></i> Thống kê doanh thu
+                </a>
+            </div>
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead class="table-dark">

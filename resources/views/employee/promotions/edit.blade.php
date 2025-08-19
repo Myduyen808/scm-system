@@ -33,7 +33,7 @@
             <input type="date" name="end_date" value="{{ old('end_date', $promotion->end_date) }}" class="form-control" id="end_date" required>
         </div>
         <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
-        <a href="{{ route('employee.promotions') }}" class="btn btn-secondary">Hủy</a>
+        <a href="{{ route(name: 'employee.promotions') }}" class="btn btn-secondary">Hủy</a>
     </form>
 </div>
 @endsection

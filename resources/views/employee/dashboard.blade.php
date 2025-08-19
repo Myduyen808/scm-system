@@ -3,6 +3,10 @@
 @section('title', 'Employee Dashboard')
 
 @section('content')
+@php
+use App\Models\User;
+@endphp
+
 <div class="container">
     <div class="row">
         <div class="col-md-12">
@@ -29,6 +33,20 @@
             </div>
         </div>
         @endcan
+
+        {{-- @can('approve products')
+            <!-- Phê duyệt sản phẩm -->
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-warning">
+                    <div class="card-body text-center">
+                        <i class="fas fa-check-circle fa-3x text-warning mb-3"></i>
+                        <h5 class="card-title">Phê duyệt sản phẩm</h5>
+                        <p class="card-text">Duyệt sản phẩm từ nhà cung cấp</p>
+                        <a href="{{ route('admin.approved.products') }}" class="btn btn-warning btn-block mt-2">Xem tất cả</a>
+                    </div>
+                </div>
+            </div>
+        @endcan --}}
 
         @can('manage orders')
         <!-- Xử lý đơn hàng -->

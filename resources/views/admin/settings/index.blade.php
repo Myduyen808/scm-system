@@ -19,7 +19,7 @@
 
     <div class="row">
         <div class="col-md-6">
-            <div class="card">
+            <div class="card mb-3">
                 <div class="card-header">
                     <h5 class="card-title">Thông Tin Hệ Thống</h5>
                 </div>
@@ -45,6 +45,22 @@
                     </form>
                 </div>
             </div>
+
+            <!-- Form sao lưu database -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Sao lưu Database</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ route('admin.settings.backup') }}" method="POST">
+                        @csrf
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-database"></i> Sao lưu database
+                        </button>
+                    </form>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>

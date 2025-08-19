@@ -13,7 +13,7 @@
     </div>
 
     <div class="row">
-        <div class="col-md-4 mb-4">
+        <div class="col-md-4 mb-4 fade-in">
             <div class="card border-primary">
                 <div class="card-body text-center">
                     <i class="fas fa-boxes fa-3x text-primary mb-3"></i>
@@ -26,7 +26,7 @@
             </div>
         </div>
 
-        <div class="col-md-4 mb-4">
+        <div class="col-md-4 mb-4 fade-in">
             <div class="card border-success">
                 <div class="card-body text-center">
                     <i class="fas fa-clipboard-list fa-3x text-success mb-3"></i>
@@ -39,7 +39,7 @@
             </div>
         </div>
 
-        <div class="col-md-4 mb-4">
+        <div class="col-md-4 mb-4 fade-in">
             <div class="card border-info">
                 <div class="card-body text-center">
                     <i class="fas fa-handshake fa-3x text-info mb-3"></i>
@@ -55,12 +55,12 @@
 
     <!-- Supplier Statistics -->
     <div class="row">
-        <div class="col-md-4 mb-4">
+        <div class="col-md-4 mb-4 fade-in">
             <div class="card bg-primary text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h4>45</h4>
+                            <h4>{{ $totalProducts }}</h4>
                             <p class="mb-0">Sản phẩm cung cấp</p>
                         </div>
                         <div class="align-self-center">
@@ -71,12 +71,12 @@
             </div>
         </div>
 
-        <div class="col-md-4 mb-4">
+        <div class="col-md-4 mb-4 fade-in">
             <div class="card bg-success text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h4>12</h4>
+                            <h4>{{ $pendingOrders }}</h4>
                             <p class="mb-0">Đơn hàng chờ xử lý</p>
                         </div>
                         <div class="align-self-center">
@@ -87,12 +87,12 @@
             </div>
         </div>
 
-        <div class="col-md-4 mb-4">
+        <div class="col-md-4 mb-4 fade-in">
             <div class="card bg-info text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h4>₫25M</h4>
+                            <h4>₫{{ number_format($monthlyRevenue, 0, ',', '.') }}</h4>
                             <p class="mb-0">Doanh thu tháng</p>
                         </div>
                         <div class="align-self-center">

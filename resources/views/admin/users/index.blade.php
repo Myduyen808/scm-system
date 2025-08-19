@@ -63,20 +63,24 @@
                             <td>{{ $user->name }}</td>
                             <td>{{ $user->email }}</td>
                             <td>
-                                <select class="form-select form-select-sm user-role"
-                                        data-user-id="{{ $user->id }}"
-                                        style="width: 150px;">
-                                    @foreach($roles ?? [] as $role)
-                                        <option value="{{ $role->name }}"
-                                                {{ $user->roles->contains('name', $role->name) ? 'selected' : '' }}>
-                                            {{ $role->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
+                                @if($roles->isNotEmpty())
+                                    <select class="form-select form-select-sm user-role"
+                                            data-user-id="{{ $user->id }}"
+                                            style="width: 150px;">
+                                        @foreach($roles as $role)
+                                            <option value="{{ $role->name }}"
+                                                    {{ $user->roles->pluck('name')->contains($role->name) ? 'selected' : '' }}>
+                                                {{ $role->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                @else
+                                    <span class="text-muted">Không có vai trò nào</span>
+                                @endif
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <a href="{{ route('admin.users.edit', $user) }}"
+                                    <a href="{{ route('admin.users.edit', $user->id) }}"
                                        class="btn btn-outline-primary"
                                        title="Chỉnh sửa">
                                         <i class="fas fa-edit"></i>

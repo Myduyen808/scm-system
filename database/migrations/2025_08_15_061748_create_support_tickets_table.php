@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade'); // Khách hàng tạo ticket
             $table->string('subject'); // Chủ đề
             $table->text('description'); // Mô tả vấn đề
-            $table->enum('status', ['open', 'in_progress', 'closed'])->default('open'); // Trạng thái
+            $table->enum('status', ['open', 'pending', 'in_progress', 'closed'])->default('open');
             $table->text('reply')->nullable(); // Phản hồi từ nhân viên
             $table->foreignId('employee_id')->nullable()->constrained('users')->onDelete('set null'); // Nhân viên xử lý
             $table->timestamps();

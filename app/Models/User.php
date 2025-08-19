@@ -44,4 +44,19 @@ class User extends Authenticatable
         return $this->hasMany(Cart::class);
     }
 
+    public function addresses()
+    {
+        return $this->hasMany(Address::class);
+    }
+
+    public function supportTickets()
+    {
+        return $this->hasMany(SupportTicket::class);
+    }
+
+    public function products() // Cho supplier
+    {
+        return $this->hasMany(Product::class, 'supplier_id');
+    }
+
 }

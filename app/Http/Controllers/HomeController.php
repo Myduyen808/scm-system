@@ -11,28 +11,40 @@ class HomeController extends Controller
 {
     public function index()
     {
-        // Lấy danh sách sản phẩm nổi bật
-        $featuredProducts = Product::where('is_active', true)->limit(6)->get();
-
         $user = auth()->user();
+        $featuredProducts = null;
         $orderCount = Order::count();
         $productCount = Product::count();
         $userCount = User::count();
+        $totalStock = Product::withSum('inventory', 'stock')->get()->sum('inventory_sum_stock');
 
-        // Kiểm tra vai trò và chuyển hướng nếu đã đăng nhập
+        // Chỉ hiển thị sản phẩm approved và active cho Customer hoặc khi chưa đăng nhập
+        if (!$user || $user->hasRole('customer')) {
+            $featuredProducts = Product::approved()
+                ->where('is_active', true) // Thêm kiểm tra is_active
+                ->with('inventory')
+                ->whereHas('inventory', function ($query) {
+                    $query->where('stock', '>', 0);
+                })
+                ->orderBy('created_at', 'desc')
+                ->limit(6)
+                ->get();
+        }
+
         if ($user) {
-            if ($user->hasRole('admin')) {
-                return redirect()->route('admin.dashboard');
-            } elseif ($user->hasRole('employee')) {
-                return redirect()->route('employee.dashboard');
-            } elseif ($user->hasRole('customer')) {
-                return redirect()->route('customer.home');
-            } elseif ($user->hasRole('supplier')) {
-                return redirect()->route('supplier.dashboard');
+            $role = $user->roles->first()->name ?? null;
+            switch ($role) {
+                case 'admin':
+                    return redirect()->route('admin.dashboard');
+                case 'employee':
+                    return redirect()->route('employee.dashboard');
+                case 'customer':
+                    return redirect()->route('customer.home');
+                case 'supplier':
+                    return redirect()->route('supplier.dashboard');
             }
         }
 
-        // Nếu chưa đăng nhập hoặc không có vai trò, hiển thị trang home
-        return view('home', compact('featuredProducts','orderCount', 'productCount', 'userCount'));
+        return view('home', compact('featuredProducts', 'orderCount', 'productCount', 'userCount', 'totalStock'));
     }
 }

@@ -14,7 +14,7 @@
             </ul>
         </div>
     @endif
-    <form action="{{ route('employee.inventory.store') }}" method="POST">
+    <form action="{{ route('employee.inventory.store') }}" method="POST" enctype="multipart/form-data">
         @csrf
         <div class="mb-3">
             <label for="name" class="form-label">Tên sản phẩm</label>
@@ -31,6 +31,10 @@
         <div class="mb-3">
             <label for="sku" class="form-label">SKU</label>
             <input type="text" name="sku" class="form-control" id="sku" required>
+        </div>
+        <div class="mb-3">
+            <label for="image" class="form-label">Hình ảnh sản phẩm</label>
+            <input type="file" name="image" class="form-control" id="image" accept="image/*">
         </div>
         <button type="submit" class="btn btn-primary">Lưu sản phẩm</button>
         <a href="{{ route('employee.inventory') }}" class="btn btn-secondary">Hủy</a>

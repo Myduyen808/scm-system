@@ -12,10 +12,10 @@ use Illuminate\Support\Facades\Auth;
 class EmployeeController extends Controller
 {
     public function __construct()
-        {
-            $this->middleware('auth');
-            $this->middleware('role:employee');
-        }
+    {
+        $this->middleware('auth');
+        $this->middleware('role:employee');
+    }
 
     public function dashboard()
     {
@@ -32,7 +32,21 @@ class EmployeeController extends Controller
             'completed' => Order::where('status', 'completed')->count(),
         ];
 
-        return view('employee.dashboard', compact('totalProducts', 'pendingOrders', 'openTickets', 'activePromotions', 'orderStats'));
+        // Lấy danh sách sản phẩm đã phê duyệt gần đây (giới hạn 5)
+        $approvedProducts = Product::where('is_approved', true)
+            ->with('inventory') // Load thông tin tồn kho
+            ->orderBy('updated_at', 'desc')
+            ->limit(5)
+            ->get();
+
+        return view('employee.dashboard', compact(
+            'totalProducts',
+            'pendingOrders',
+            'openTickets',
+            'activePromotions',
+            'orderStats',
+            'approvedProducts'
+        ));
     }
 
     // Quản lý kho (Inventory)
@@ -49,16 +63,17 @@ class EmployeeController extends Controller
         $products = $query->paginate(10);
         return view('employee.inventory.index', compact('products'));
     }
+
     public function updateInventory(Request $request, $productId)
-        {
-            if (!Auth::user()->can('manage inventory')) {
-                abort(403);
-            }
-            $product = Product::findOrFail($productId);
-            $validated = $request->validate(['stock_quantity' => 'required|integer|min:0']);
-            $product->update($validated);
-            return redirect()->back()->with('success', 'Cập nhật tồn kho thành công!');
+    {
+        if (!Auth::user()->can('manage inventory')) {
+            abort(403);
         }
+        $product = Product::findOrFail($productId);
+        $validated = $request->validate(['stock_quantity' => 'required|integer|min:0']);
+        $product->update($validated);
+        return redirect()->back()->with('success', 'Cập nhật tồn kho thành công!');
+    }
 
     public function createInventory()
     {
@@ -79,6 +94,7 @@ class EmployeeController extends Controller
             'stock_quantity' => 'required|integer|min:0',
             'sku' => 'required|string|unique:products',
             'description' => 'nullable|string',
+            'image' => 'nullable|image|max:2048', // Hình ảnh tối đa 2MB
         ]);
         Product::create($validated);
         return redirect()->route('employee.inventory')->with('success', 'Thêm sản phẩm thành công!');
@@ -285,5 +301,25 @@ class EmployeeController extends Controller
             ->take(5)
             ->get();
         return view('employee.reports.index', compact('revenue', 'topProducts', 'month', 'year'));
+    }
+
+    public function index()
+    {
+        $tickets = SupportTicket::where('assigned_to', auth()->id())->get();
+        return view('employee.support.index', compact('tickets'));
+    }
+
+    public function replyTicket($ticketId, Request $request)
+    {
+        $request->validate(['message' => 'required|string']);
+        $ticket = SupportTicket::findOrFail($ticketId);
+
+        // Có thể tạo bảng replies hoặc dùng comment system
+        $ticket->replies()->create([
+            'user_id' => auth()->id(),
+            'message' => $request->message
+        ]);
+
+        return back()->with('success', 'Trả lời ticket thành công!');
     }
 }

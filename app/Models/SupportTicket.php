@@ -18,8 +18,14 @@ class SupportTicket extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function employee()
+    public function replies()
+    {
+        return $this->hasMany(SupportTicketReply::class, 'ticket_id');
+    }
+
+    public function assignedTo()
     {
         return $this->belongsTo(User::class, 'employee_id');
     }
+
 }

@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
+
 @section('title', 'Trang chủ - SCM System')
+
 
 @section('content')
 <!-- Hero Section -->
@@ -28,6 +30,7 @@
     </div>
 </section>
 
+
 <!-- Features Section -->
 <section id="features" class="py-5">
     <div class="container">
@@ -37,6 +40,7 @@
                 <p class="lead text-muted">Những tính năng mạnh mẽ giúp tối ưu hóa chuỗi cung ứng của bạn</p>
             </div>
         </div>
+
 
         <div class="row">
             <div class="col-md-4 mb-4 fade-in">
@@ -51,6 +55,7 @@
                 </div>
             </div>
 
+
             <div class="col-md-4 mb-4 fade-in">
                 <div class="card h-100 text-center p-4">
                     <div class="card-body">
@@ -62,6 +67,7 @@
                     </div>
                 </div>
             </div>
+
 
             <div class="col-md-4 mb-4 fade-in">
                 <div class="card h-100 text-center p-4">
@@ -78,6 +84,7 @@
     </div>
 </section>
 
+
 <!-- Featured Products -->
 @if(isset($featuredProducts) && $featuredProducts->count() > 0)
 <section class="py-5 bg-light">
@@ -89,8 +96,10 @@
             </div>
         </div>
 
+
         <div class="row">
             @foreach($featuredProducts as $product)
+            @if($product->is_approved)
             <div class="col-lg-4 col-md-6 mb-4 fade-in">
                 <div class="card product-card h-100">
                     @if($product->image)
@@ -99,10 +108,11 @@
                         <img src="https://via.placeholder.com/300x200?text=No+Image" class="card-img-top" alt="{{ $product->name }}">
                     @endif
 
+
                     <div class="card-body d-flex flex-column">
                         <h5 class="card-title">{{ $product->name }}</h5>
                         <div class="mb-3">
-                            @if($product->sale_price)
+                            @if($product->sale_price && $product->sale_price < $product->regular_price)
                                 <span class="price">{{ number_format($product->sale_price, 0, ',', '.') }}đ</span>
                                 <span class="price-old ms-2">{{ number_format($product->regular_price, 0, ',', '.') }}đ</span>
                             @else
@@ -110,17 +120,23 @@
                             @endif
                         </div>
 
+
                         <div class="d-flex justify-content-between align-items-center mt-auto">
                             <small class="text-muted">
                                 <i class="fas fa-box"></i>
-                                Còn {{ $product->inventory->stock ?? 0 }} sản phẩm
+                                Còn {{ $product->inventory ? $product->inventory->stock : 0 }} sản phẩm
                             </small>
                             <div class="btn-group">
-                                <a href="#" class="btn btn-outline-primary btn-sm">
+                                <a href="{{ url('/products/' . $product->id) }}" class="btn btn-outline-primary btn-sm">
                                     <i class="fas fa-eye"></i>
                                 </a>
                                 @if($product->inventory && $product->inventory->stock > 0)
-                                <form action="{{ route('cart.add') }}" method="POST" class="d-inline">
+                                <form action="{{ route('cart.add', $product->id) }}" method="POST">
+                                    @csrf
+                                    <button type="submit">Thêm vào giỏ</button>
+                                </form>
+
+
                                     @csrf
                                     <input type="hidden" name="product_id" value="{{ $product->id }}">
                                     <input type="hidden" name="quantity" value="1">
@@ -138,8 +154,10 @@
                     </div>
                 </div>
             </div>
+            @endif
             @endforeach
         </div>
+
 
         <div class="text-center">
             <a href="{{ route('customer.products') }}" class="btn btn-primary btn-lg">
@@ -150,13 +168,14 @@
 </section>
 @endif
 
+
 <!-- Statistics -->
 <section class="py-5">
     <div class="container">
         <div class="row text-center">
             <div class="col-md-3 mb-4 fade-in">
                 <div class="card border-0 bg-primary text-white p-4">
-                    <h3 class="fw-bold">{{ \App\Models\Product::count() }}</h3>
+                    <h3 class="fw-bold">{{ $productCount }}</h3>
                     <p class="mb-0">Sản phẩm</p>
                 </div>
             </div>
@@ -174,12 +193,11 @@
             </div>
             <div class="col-md-3 mb-4 fade-in">
                 <div class="card border-0 bg-warning text-white p-4">
-                    <h3 class="fw-bold">{{ number_format(\App\Models\Product::sum('stock_quantity')) }}</h3>
+                    <h3 class="fw-bold">{{ $totalStock }}</h3>
                     <p class="mb-0">Tổng tồn kho</p>
                 </div>
             </div>
         </div>
     </div>
 </section>
-
 @endsection
