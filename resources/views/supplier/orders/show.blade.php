@@ -7,7 +7,7 @@
     <h1 class="mb-4"><i class="fas fa-shopping-cart"></i> Chi Tiết Đơn Hàng #{{ $order->order_number }}</h1>
     <div class="card mb-4 fade-in">
         <div class="card-body">
-            <p><strong>Khách hàng:</strong> {{ $order->user->name }}</p>
+            <p><strong>Khách hàng:</strong> {{ $order->customer->name ?? 'Không xác định' }}</p> <!-- Sửa thành customer -->
             <p><strong>Tổng tiền:</strong> ₫{{ number_format($order->total_amount, 0, ',', '.') }}</p>
             <p><strong>Trạng thái:</strong> {{ $order->status }}</p>
             <p><strong>Ngày đặt:</strong> {{ $order->created_at->format('d/m/Y H:i') }}</p>

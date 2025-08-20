@@ -186,7 +186,9 @@ class SupplierController extends Controller
             $query->where('status', $request->input('status'));
         }
 
-        $orders = $query->orderBy('created_at', 'desc')->paginate(10);
+        $orders = $query->with('customer') // Thêm eager loading cho customer
+                    ->orderBy('created_at', 'desc')
+                    ->paginate(10);
 
         return view('supplier.orders.index', compact('orders'));
     }
@@ -194,7 +196,8 @@ class SupplierController extends Controller
     // Xem chi tiết đơn hàng
     public function showOrder($id)
     {
-        $order = Order::with('orderItems.product')->findOrFail($id);
+        $order = Order::with('orderItems.product', 'customer') // Thêm 'customer' vào eager loading
+                    ->findOrFail($id);
         if (!$order->orderItems->where('product.supplier_id', Auth::id())->count()) {
             abort(403, 'Bạn không có quyền xem đơn hàng này.');
         }

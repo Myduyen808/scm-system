@@ -33,7 +33,7 @@
                     @forelse($orders as $order)
                     <tr>
                         <td>{{ $order->order_number }}</td>
-                        <td>{{ $order->user->name }}</td>
+                        <td>{{ $order->customer->name ?? 'Không xác định' }}</td> <!-- Sửa thành customer -->
                         <td>₫{{ number_format($order->total_amount, 0, ',', '.') }}</td>
                         <td>{{ $order->status }}</td>
                         <td>{{ $order->created_at->format('d/m/Y H:i') }}</td>
