@@ -133,17 +133,6 @@ class EmployeeController extends Controller
         return view('employee.orders.index', compact('orders'));
     }
 
-    public function updateOrderStatus(Request $request, $orderId)
-    {
-        if (!Auth::user()->can('manage orders')) {
-            abort(403);
-        }
-        $order = Order::findOrFail($orderId);
-        $validated = $request->validate(['status' => 'required|in:pending,processing,shipped,delivered,cancelled']);
-        $order->update($validated);
-        return redirect()->back()->with('success', 'Cập nhật trạng thái đơn hàng thành công!');
-    }
-
     public function showOrder($orderId)
     {
         if (!Auth::user()->can('manage orders')) {
@@ -321,5 +310,28 @@ class EmployeeController extends Controller
         ]);
 
         return back()->with('success', 'Trả lời ticket thành công!');
+    }
+
+        public function updateOrderStatus(Request $request, $order)
+    {
+        $order = Order::findOrFail($order);
+        $request->validate([
+            'status' => 'required|in:pending,processing,shipped,delivered,cancelled',
+            'tracking_number' => 'nullable|string',
+            'shipping_note' => 'nullable|string',
+        ]);
+
+        $order->update([
+            'status' => $request->status,
+            'tracking_number' => $request->tracking_number,
+            'shipping_note' => $request->shipping_note,
+        ]);
+
+        if ($request->status === 'delivered') {
+            $order->delivered_at = now();
+            $order->save();
+        }
+
+        return redirect()->route('employee.orders')->with('success', 'Cập nhật trạng thái đơn hàng thành công!');
     }
 }

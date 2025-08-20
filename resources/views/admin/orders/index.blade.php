@@ -103,10 +103,18 @@
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <a href="{{ route('admin.orders.show', $order) }}"
-                                       class="btn btn-outline-primary"
-                                       title="Xem chi tiết">
+                                    class="btn btn-outline-primary"
+                                    title="Xem chi tiết">
                                         <i class="fas fa-eye"></i>
                                     </a>
+                                    <button type="button"
+                                            class="btn btn-outline-success confirm-payment"
+                                            data-order-id="{{ $order->id }}"
+                                            data-order-number="{{ $order->order_number }}"
+                                            title="Xác nhận thanh toán"
+                                            {{ $order->payment_status == 'paid' ? 'disabled' : '' }}>
+                                        <i class="fas fa-check"></i>
+                                    </button>
                                     <button type="button"
                                             class="btn btn-outline-danger cancel-order"
                                             data-order-id="{{ $order->id }}"
@@ -218,6 +226,28 @@ $(document).ready(function() {
         $('.toast-container').append(toast);
         toast.toast('show');
         setTimeout(() => toast.remove(), 5000);
+    }
+});
+// Confirm payment
+$('.confirm-payment').on('click', function() {
+    const orderId = $(this).data('order-id');
+    const orderNumber = $(this).data('order-number');
+
+    if (confirm(`Xác nhận thanh toán cho đơn hàng ${orderNumber}?`)) {
+        $.ajax({
+            url: `/admin/orders/${orderId}/confirm-payment`,
+            method: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}',
+            },
+            success: function(response) {
+                showToast('success', response.message || 'Xác nhận thanh toán thành công!');
+                location.reload(); // Tải lại trang để cập nhật
+            },
+            error: function() {
+                showToast('error', 'Có lỗi xảy ra khi xác nhận thanh toán!');
+            }
+        });
     }
 });
 </script>

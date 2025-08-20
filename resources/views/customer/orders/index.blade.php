@@ -37,6 +37,7 @@
                         <td>{{ $order->created_at->format('d/m/Y H:i') }}</td>
                         <td>
                             <a href="{{ route('customer.orders.show', $order->id) }}" class="btn btn-info btn-sm"><i class="fas fa-eye"></i> Xem</a>
+                            <a href="{{ route('customer.orders.track', $order->order_number) }}" class="btn btn-dark btn-sm"><i class="fas fa-truck"></i> Theo dõi</a>
                         </td>
                     </tr>
                     @empty

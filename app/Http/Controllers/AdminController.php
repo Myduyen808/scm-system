@@ -234,7 +234,6 @@ class AdminController extends Controller
     {
         $query = Order::with('customer', 'orderItems.product');
 
-        // Tìm kiếm và lọc (tương tự inventory)
         if ($request->search) {
             $query->where('order_number', 'like', '%' . $request->search . '%');
         }
@@ -257,8 +256,28 @@ class AdminController extends Controller
     {
         $order = Order::findOrFail($id);
         $validated = $request->validate(['status' => 'required|in:pending,processing,shipped,delivered,cancelled']);
+
         $order->update($validated);
-        return redirect()->back()->with('success', 'Cập nhật trạng thái thành công!');
+        return response()->json(['message' => 'Cập nhật trạng thái thành công!']);
+    }
+
+    public function confirmPayment(Request $request, $id)
+    {
+        $order = Order::findOrFail($id);
+
+        // Kiểm tra nếu đã thanh toán thì không cần hành động
+        if ($order->payment_status === 'paid') {
+            return response()->json(['message' => 'Đơn hàng đã được thanh toán!'], 400);
+        }
+
+        // Cập nhật trạng thái thanh toán và chuyển status sang processing nếu từ pending
+        $order->payment_status = 'paid';
+        if ($order->status === 'pending') {
+            $order->status = 'processing';
+        }
+        $order->save();
+
+        return response()->json(['message' => 'Xác nhận thanh toán thành công!']);
     }
 
     public function cancelOrder($id)
@@ -619,11 +638,12 @@ class AdminController extends Controller
     {
         return Excel::download(new OrdersExport, 'orders_' . now()->format('Ymd_His') . '.xlsx');
     }
+
     public function orderStats()
     {
-        $totalRevenue = Order::where('status', 'completed')->sum('total_amount');
+        $totalRevenue = Order::where('status', 'delivered')->sum('total_amount'); // Chỉ tính doanh thu khi giao thành công
         $monthlyRevenue = Order::selectRaw('MONTH(created_at) as month, SUM(total_amount) as revenue')
-            ->where('status', 'completed')
+            ->where('status', 'delivered')
             ->groupBy('month')
             ->get();
 
@@ -661,5 +681,6 @@ class AdminController extends Controller
         $logs = Activity::orderBy('created_at', 'desc')->paginate(20);
         return view('admin.logs', compact('logs'));
     }
+
 
 }

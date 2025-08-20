@@ -19,6 +19,11 @@
                     <a href="#features" class="btn btn-outline-light btn-lg">
                         <i class="fas fa-info-circle me-2"></i>Tìm hiểu thêm
                     </a>
+                    @guest
+                        <a href="{{ route('about') }}" class="btn btn-outline-light btn-lg">
+                            <i class="fas fa-users me-2"></i>Về chúng tôi
+                        </a>
+                    @endguest
                 </div>
             </div>
             <div class="col-lg-6 fade-in">
@@ -131,7 +136,7 @@
                                     <i class="fas fa-eye"></i>
                                 </a>
                                 @if($product->inventory && $product->inventory->stock > 0)
-                                <form action="{{ route('cart.add', $product->id) }}" method="POST">
+                                <form action="{{ route('customer.cart.add', $product->id) }}" method="POST">
                                     @csrf
                                     <button type="submit">Thêm vào giỏ</button>
                                 </form>

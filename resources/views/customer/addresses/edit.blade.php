@@ -8,7 +8,8 @@
     <div class="card fade-in">
         <div class="card-body">
             <form action="{{ route('customer.addresses.update', $address->id) }}" method="POST">
-                @csrf @method('PUT')
+                @csrf
+                @method('PUT')
                 <div class="mb-3">
                     <label class="form-label">Tên người nhận</label>
                     <input type="text" name="name" value="{{ old('name', $address->name) }}" class="form-control @error('name') is-invalid @enderror" required>

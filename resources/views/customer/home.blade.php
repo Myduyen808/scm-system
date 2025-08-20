@@ -26,11 +26,12 @@
             </div>
         </div>
 
+    <!-- Card Giỏ hàng -->
         <div class="col-md-3 mb-4">
             <div class="card border-success">
                 <div class="card-body text-center">
                     <i class="fas fa-shopping-cart fa-3x text-success mb-3"></i>
-                    <h5 class="card-title">Giỏ hàng</h5>
+                    <h5 class="card-title">Giỏ hàng </h5>
                     <p class="card-text">Xem và quản lý giỏ hàng</p>
                     <a href="{{ route('customer.cart') }}" class="btn btn-success">
                         <i class="fas fa-arrow-right"></i> Xem giỏ hàng
@@ -71,7 +72,7 @@
                     <i class="fas fa-map-marker-alt fa-3x text-secondary mb-3"></i>
                     <h5 class="card-title">Địa chỉ giao hàng</h5>
                     <p class="card-text">Quản lý địa chỉ của bạn</p>
-                    <a href="{{ route('customer.addresses') }}" class="btn btn-secondary">
+                    <a href="{{ route('customer.addresses.index') }}" class="btn btn-secondary">
                         <i class="fas fa-arrow-right"></i> Xem địa chỉ
                     </a>
                 </div>
@@ -84,8 +85,8 @@
                     <i class="fas fa-truck fa-3x text-dark mb-3"></i>
                     <h5 class="card-title">Theo dõi giao hàng</h5>
                     <p class="card-text">Kiểm tra trạng thái giao hàng</p>
-                    <a href="{{ route('customer.orders.track') }}" class="btn btn-dark">
-                        <i class="fas fa-arrow-right"></i> Theo dõi
+                    <a href="{{ route('customer.orders') }}" class="btn btn-dark">
+                        <i class="fas fa-arrow-right"></i> Xem đơn hàng để theo dõi
                     </a>
                 </div>
             </div>
@@ -140,7 +141,7 @@
                             <strong>₫{{ number_format($product->regular_price, 0, ',', '.') }}</strong>
                         @endif
                     </p>
-                    <form action="{{ route('cart.add', $product->id) }}" method="POST" class="d-inline">
+                    <form action="{{ route('customer.cart.add', $product->id) }}" method="POST" class="d-inline">
                         @csrf
                         <input type="hidden" name="quantity" value="1">
                         <button type="submit" class="btn btn-primary btn-sm add-to-cart-btn">

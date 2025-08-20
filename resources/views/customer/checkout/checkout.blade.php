@@ -28,7 +28,7 @@
                             <td>{{ $item->product->name }}</td>
                             <td>{{ number_format($item->product->current_price, 0, ',', '.') }} đ</td>
                             <td>
-                                <form action="{{ route('customer.cart.update', $item->product_id) }}" method="POST">
+                                <form action="{{ route('customer.cart.update', $item->id) }}" method="POST">
                                     @csrf
                                     <input type="number" name="quantity" value="{{ $item->quantity }}" min="1" class="form-control d-inline-block w-auto">
                                     <button type="submit" class="btn btn-sm btn-primary mt-2">Cập nhật</button>
@@ -36,7 +36,7 @@
                             </td>
                             <td>{{ number_format($item->product->current_price * $item->quantity, 0, ',', '.') }} đ</td>
                             <td>
-                                <form action="{{ route('customer.cart.remove', $item->product_id) }}" method="POST">
+                                <form action="{{ route('customer.cart.remove', $item->id) }}" method="POST">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn btn-sm btn-danger">Xóa</button>
@@ -63,17 +63,31 @@
                 @if (Auth::user()->addresses->isEmpty())
                     <p>Chưa có địa chỉ giao hàng! <a href="{{ route('customer.addresses.create') }}">Thêm địa chỉ mới</a></p>
                 @else
-                    <select name="address_id" id="address_id" class="form-control" required>
+                    <select name="address_id" id="address_id" class="form-control" required onchange="document.getElementById('address_id_hidden').value = this.value">
                         @foreach (Auth::user()->addresses as $address)
                             <option value="{{ $address->id }}">{{ $address->name }} - {{ $address->address_line }}</option>
                         @endforeach
                     </select>
+                    <input type="hidden" name="address_id_hidden" id="address_id_hidden" value="{{ old('address_id_hidden', Auth::user()->addresses->first()->id ?? '') }}">
                 @endif
             </div>
             @if (!Auth::user()->addresses->isEmpty())
-                <button type="submit" class="btn btn-success mt-3">Thanh toán</button>
+                <button type="submit" class="btn btn-success mt-3" id="checkout-btn">Thanh toán</button>
             @endif
         </form>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const select = document.getElementById('address_id');
+                const hidden = document.getElementById('address_id_hidden');
+                if (select && hidden) {
+                    select.value = hidden.value; // Đồng bộ giá trị mặc định
+                    select.addEventListener('change', function() {
+                        hidden.value = this.value;
+                    });
+                }
+            });
+        </script>
     @endif
 </div>
 @endsection

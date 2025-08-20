@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Inventory;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -20,6 +21,31 @@ class ProductController extends Controller
         );
     }
 
+    // Hiển thị danh sách tất cả sản phẩm (tùy vai trò)
+    public function index()
+    {
+        $user = auth()->user();
+        $role = $user->roles->first()->name;
+
+        if ($role === 'admin') {
+            $products = Product::with('supplier', 'inventory')->paginate(10);
+        } elseif ($role === 'supplier') {
+            $products = Product::where('supplier_id', $user->id)->with('inventory')->paginate(10);
+        } else {
+            $products = Product::where('is_approved', true)->with('inventory')->paginate(10);
+        }
+
+        return view('products.index', compact('products'));
+    }
+
+    // Hiển thị chi tiết sản phẩm
+    public function show($id)
+    {
+        $product = Product::with('inventory', 'supplier')->findOrFail($id);
+        return view('products.show', compact('product'));
+    }
+
+    // Thêm sản phẩm mới
     public function store(Request $request)
     {
         $user = auth()->user();
@@ -37,7 +63,6 @@ class ProductController extends Controller
 
         $product = new Product($validated);
         $product->supplier_id = ($role === 'supplier') ? $user->id : null;
-        // Chỉ admin tự động phê duyệt khi thêm mới
         $product->is_approved = ($role === 'admin');
         $product->save();
 
@@ -51,7 +76,6 @@ class ProductController extends Controller
             'stock' => $validated['stock_quantity'],
         ]);
 
-        // Nếu Supplier hoặc Employee thêm, gửi message RabbitMQ để thông báo cần approve
         if ($role === 'supplier' || $role === 'employee') {
             $connection = $this->getRabbitMQConnection();
             $channel = $connection->channel();
@@ -67,7 +91,69 @@ class ProductController extends Controller
         return redirect()->back()->with('success', 'Sản phẩm đã được thêm!');
     }
 
-    // Approve sản phẩm (cho Admin và Employee)
+    // Cập nhật thông tin sản phẩm
+    public function update(Request $request, $id)
+    {
+        $this->authorize('update', Product::class);
+
+        $product = Product::findOrFail($id);
+        $user = auth()->user();
+        $role = $user->roles->first()->name;
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'regular_price' => 'required|numeric|min:0',
+            'sale_price' => 'nullable|numeric|min:0',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'sku' => 'required|string|unique:products,sku,' . $id,
+            'stock_quantity' => 'required|integer|min:0',
+        ]);
+
+        $product->fill($validated);
+        if ($request->hasFile('image')) {
+            if ($product->image) {
+                Storage::disk('public')->delete($product->image);
+            }
+            $product->image = $request->file('image')->store('products', 'public');
+        }
+        $product->save();
+
+        $inventory = $product->inventory;
+        $inventory->stock = $validated['stock_quantity'];
+        $inventory->save();
+
+        if ($role === 'supplier' || $role === 'employee') {
+            $connection = $this->getRabbitMQConnection();
+            $channel = $connection->channel();
+            $channel->queue_declare('product_update', false, true, false, false);
+
+            $msg = new AMQPMessage(json_encode(['product_id' => $product->id, 'action' => 'updated']));
+            $channel->basic_publish($msg, '', 'product_update');
+
+            $channel->close();
+            $connection->close();
+        }
+
+        return redirect()->route('products.show', $product->id)->with('success', 'Sản phẩm đã được cập nhật!');
+    }
+
+    // Xóa sản phẩm
+    public function destroy($id)
+    {
+        $this->authorize('delete', Product::class);
+
+        $product = Product::findOrFail($id);
+        if ($product->image) {
+            Storage::disk('public')->delete($product->image);
+        }
+        $product->inventory()->delete();
+        $product->delete();
+
+        return redirect()->route('products.index')->with('success', 'Sản phẩm đã được xóa!');
+    }
+
+    // Phê duyệt sản phẩm
     public function approve($id)
     {
         $this->authorize('approve products');
@@ -77,7 +163,6 @@ class ProductController extends Controller
         $product->is_active = true;
         $product->save();
 
-        // Gửi thông báo qua RabbitMQ khi phê duyệt (bỏ comment nếu cần)
         /*
         $connection = $this->getRabbitMQConnection();
         $channel = $connection->channel();
@@ -93,7 +178,7 @@ class ProductController extends Controller
         return redirect()->back()->with('success', 'Sản phẩm đã được phê duyệt và hiển thị cho khách hàng!');
     }
 
-    // Danh sách sản phẩm chờ approve (cho Admin và Employee)
+    // Danh sách sản phẩm chờ approve
     public function pendingProducts()
     {
         $this->authorize('approve products');
@@ -106,7 +191,7 @@ class ProductController extends Controller
         return view('admin.pending.products', compact('pendingProducts', 'approvedProducts'));
     }
 
-    // Danh sách sản phẩm đã phê duyệt (cho Admin và Employee)
+    // Danh sách sản phẩm đã phê duyệt
     public function approvedProducts()
     {
         $this->authorize('approve products');

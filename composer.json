@@ -13,10 +13,13 @@
         "laravel/sanctum": "^4.2",
         "laravel/tinker": "^2.10.1",
         "maatwebsite/excel": "3.1.x-dev",
+        "paypal/paypal-server-sdk": "^1.1",
+        "paypal/rest-api-sdk-php": "^1.6",
         "php-amqplib/php-amqplib": "^3.7",
         "spatie/laravel-activitylog": "^4.10",
         "spatie/laravel-backup": "^9.3",
-        "spatie/laravel-permission": "dev-main"
+        "spatie/laravel-permission": "dev-main",
+        "stripe/stripe-php": "^16.6"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

@@ -11,7 +11,9 @@ use App\Http\Controllers\ProductController;
 
 // Trang chủ public
 Route::get('/', [HomeController::class, 'index'])->name('home');
-Route::get('/about', [HomeController::class, 'index'])->name('about');
+Route::get('/about', function () {
+    return view('about');
+})->name('about');
 
 // Authentication routes
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -63,13 +65,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/tickets', [AdminController::class, 'tickets'])->name('tickets');
 
 
-        // ==== QUẢN LÝ ĐỔN HÀNG (ORDERS) ====
-        Route::get('/orders', [AdminController::class, 'orders'])->name('orders');
-        Route::get('/orders/{order}', [AdminController::class, 'showOrder'])->name('orders.show');
-        Route::patch('/orders/{order}/status', [AdminController::class, 'updateOrderStatus'])->name('orders.update-status');
-        Route::patch('/orders/{order}/payment-status', [AdminController::class, 'updatePaymentStatus'])->name('orders.update-payment');
-        Route::delete('/orders/{order}', [AdminController::class, 'cancelOrder'])->name('orders.cancel');
-
         // ==== QUẢN LÝ NGƯỜI DÙNG (USERS) ====
         Route::get('/users', [AdminController::class, 'users'])->name('users');
         Route::get('/users/create', [AdminController::class, 'createUser'])->name('users.create');
@@ -114,6 +109,22 @@ Route::middleware('auth')->group(function () {
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
         Route::patch('/products/{id}/approve', [ProductController::class, 'approve'])->name('products.approve');
         Route::get('/pending-products', [ProductController::class, 'pendingProducts'])->name('pending.products');
+
+        // ==== QUẢN LÝ ĐỔN HÀNG (ORDERS) ====
+        Route::get('/orders', [AdminController::class, 'orders'])->name('orders');
+        Route::get('/orders/{order}', [AdminController::class, 'showOrder'])->name('orders.show');
+        Route::patch('/orders/{order}/status', [AdminController::class, 'updateOrderStatus'])->name('orders.update-status');
+        Route::patch('/orders/{order}/payment-status', [AdminController::class, 'updatePaymentStatus'])->name('orders.update-payment');
+        Route::delete('/orders/{order}', [AdminController::class, 'cancelOrder'])->name('orders.cancel');
+
+        // xác nhận thanh toán
+        Route::post('/orders/{id}/confirm-payment', [AdminController::class, 'confirmPayment'])->name('orders.confirm-payment');
+
+        Route::delete('/orders/{id}', [AdminController::class, 'destroy'])->name('orders.destroy');
+        Route::get('/orders/{order}', [AdminController::class, 'show'])->name('orders.show');
+        Route::get('/orders/export', [AdminController::class, 'export'])->name('orders.export');
+        Route::get('/orders/stats', [AdminController::class, 'stats'])->name('orders.stats');
+
         });
 
 
@@ -155,7 +166,7 @@ Route::middleware(['auth', 'role:customer'])->group(function () {
     Route::get('/customer/home', [CustomerController::class, 'home'])->name('customer.home');
     Route::get('/customer/products', [CustomerController::class, 'products'])->name('customer.products');
     Route::get('/customer/products/{id}', [CustomerController::class, 'showProduct'])->name('customer.products.show');
-    Route::post('/customer/cart/add/{id}', [CustomerController::class, 'addToCart'])->name('cart.add');
+    Route::post('/customer/cart/add/{id}', [CustomerController::class, 'addToCart'])->name('customer.cart.add');
     Route::get('/customer/cart', [CustomerController::class, 'cart'])->name('customer.cart');
     Route::post('/customer/cart/update/{id}', [CustomerController::class, 'updateCart'])->name('cart.update');
     Route::delete('/customer/cart/remove/{id}', [CustomerController::class, 'removeFromCart'])->name('cart.remove');
@@ -164,20 +175,23 @@ Route::middleware(['auth', 'role:customer'])->group(function () {
     Route::get('/customer/orders', [CustomerController::class, 'orders'])->name('customer.orders');
     Route::get('/customer/orders/{id}', [CustomerController::class, 'showOrder'])->name('customer.orders.show');
     Route::get('/customer/orders/confirm/{id}', [CustomerController::class, 'confirmOrder'])->name('customer.order.confirm');
-    Route::get('/customer/orders/track', [CustomerController::class, 'trackOrder'])->name('customer.orders.track');
-    Route::get('/customer/addresses', [CustomerController::class, 'addresses'])->name('customer.addresses');
-    Route::post('/customer/addresses', [CustomerController::class, 'storeAddress'])->name('customer.addresses.index');
+    Route::get('/customer/orders/track/{order_number?}', [CustomerController::class, 'trackOrder'])->name('customer.orders.track');
+    Route::get('/customer/addresses', [CustomerController::class, 'addresses'])->name('customer.addresses.index');
+    Route::post('/customer/addresses', [CustomerController::class, 'storeAddress'])->name('customer.addresses.store');
     Route::get('/customer/addresses/create', [CustomerController::class, 'createAddress'])->name('customer.addresses.create');
+    Route::get('/customer/addresses/{id}/edit', [CustomerController::class, 'editAddress'])->name('customer.addresses.edit');
+    Route::get('/customer/addresses/{id}', [CustomerController::class, 'showAddress'])->name('customer.addresses.show');
     Route::put('/customer/addresses/{id}', [CustomerController::class, 'updateAddress'])->name('customer.addresses.update');
     Route::delete('/customer/addresses/{id}', [CustomerController::class, 'deleteAddress'])->name('customer.addresses.delete');
     Route::get('/customer/support', [CustomerController::class, 'support'])->name('customer.support');
-    Route::post('/customer/support', [CustomerController::class, 'createTicket'])->name('customer.support.create');
-    Route::get('/customer/support/{id}', [CustomerController::class, 'showTicket'])->name('customer.support.show');
-    Route::post('/customer/support/{id}/reply', [CustomerController::class, 'replyTicket'])->name('customer.support.reply');
+    Route::post('/customer/support', [CustomerController::class, 'storeSupport'])->name('customer.support.create');
+    Route::get('/customer/support/{id}', [CustomerController::class, 'showSupport'])->name('customer.support.show');
+    Route::post('/customer/support/{id}/reply', [CustomerController::class, 'replySupport'])->name('customer.support.reply');
     Route::get('/customer/reviews/create/{product_id}', [CustomerController::class, 'createReview'])->name('customer.reviews.create');
     Route::post('/customer/reviews', [CustomerController::class, 'storeReview'])->name('customer.reviews.store');
-
     Route::get('/customer/promotions', [CustomerController::class, 'promotions'])->name('customer.promotions');
+    Route::post('/customer/payment/success/{order}', [CustomerController::class, 'paymentSuccess'])->name('customer.payment.success');
+    Route::post('/customer/payment/process/{order}', [CustomerController::class, 'processPayment'])->name('customer.payment.process');
 });
 
 // Routes cho Supplier

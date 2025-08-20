@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'SCM System - Quản Lý Chuỗi Cung Ứng')</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -78,11 +79,29 @@
                 transform: translateY(0);
             }
         }
+
+        .cart-badge {
+            display: inline-block;
+            min-width: 18px;
+            padding: 0 6px;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 18px;
+            color: #fff;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            background-color: var(--secondary-color);
+            border-radius: 10px;
+            position: absolute;
+            top: -5px;
+            right: -10px;
+        }
     </style>
     @yield('styles')
 </head>
 <body>
-<!-- Navigation -->
+    <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm">
         <div class="container">
             <a class="navbar-brand" href="{{ route('home') }}">
@@ -147,7 +166,12 @@
                             @role('customer')
                                 <a class="nav-link" href="{{ route('customer.cart') }}">
                                     <i class="fas fa-shopping-cart"></i>
-                                    <span class="cart-badge" id="cart-count">{{ Cart::getContent()->count() }}</span>
+                                    @php
+                                        $cartCount = Cart::getContent()->count();
+                                    @endphp
+                                    @if($cartCount > 0)
+                                        <span class="cart-badge" id="cart-count">{{ $cartCount }}</span>
+                                    @endif
                                 </a>
                             @endrole
                         </li>
@@ -248,15 +272,37 @@
         });
 
         // Update cart count
-        function updateCartCount() {
-            location.reload();
+        function updateCartCount(count) {
+            const cartBadge = $('#cart-count');
+            if (count > 0) {
+                cartBadge.text(count).show();
+            } else {
+                cartBadge.hide();
+            }
         }
 
         $('.add-to-cart').click(function() {
             let productId = $(this).data('id');
-            $.post('/customer/cart/add', { product_id: productId, quantity: 1 }, function(data) {
-                alert('Đã thêm vào giỏ!');
-                $('#cart-count').text(data.cartCount);
+            $(this).html('<i class="fas fa-spinner fa-spin"></i> Đang thêm...');
+            $.ajax({
+                url: '/customer/cart/add/' + productId,
+                type: 'POST',
+                data: { quantity: 1, _token: $('meta[name="csrf-token"]').attr('content') },
+                success: function(response) {
+                    $(this).html('<i class="fas fa-cart-plus"></i> Thêm vào giỏ');
+                    if (response.success) {
+                        alert(response.message + ' Tổng số lượng: ' + response.cartCount);
+                        updateCartCount(response.cartCount);
+                    } else {
+                        alert('Lỗi: ' + response.error);
+                    }
+                },
+                error: function(xhr) {
+                    alert('Đã xảy ra lỗi khi thêm vào giỏ hàng.');
+                    $(this).html('<i class="fas fa-cart-plus"></i> Thêm vào giỏ');
+                }
+            }).always(function() {
+                $(this).html('<i class="fas fa-cart-plus"></i> Thêm vào giỏ');
             });
         });
     </script>

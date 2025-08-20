@@ -29,7 +29,7 @@
                                 <td>{{ $address->address_line }}</td>
                                 <td>{{ $address->is_default ? 'Có' : 'Không' }}</td>
                                 <td>
-                                    <a href="{{ route('customer.addresses.update', $address->id) }}" class="btn btn-sm btn-info"><i class="fas fa-edit"></i></a>
+                                    <a href="{{ route('customer.addresses.edit', $address->id) }}" class="btn btn-sm btn-info"><i class="fas fa-edit"></i></a>
                                     <form action="{{ route('customer.addresses.delete', $address->id) }}" method="POST" style="display:inline;">
                                         @csrf
                                         @method('DELETE')
