@@ -9,6 +9,7 @@ use App\Exports\OrdersExport;
 use App\Models\Product;
 use App\Models\Order;
 use App\Models\User;
+use App\Models\Review; // Thêm import cho Review
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash; // vì bạn có dùng Hash::make()
@@ -32,9 +33,8 @@ class AdminController extends Controller
     }
 
     // ==================== DASHBOARD ====================
-    public function dashboard()
+   public function dashboard()
     {
-        // Thống kê tổng quan
         $totalProducts = Product::count();
         $totalOrders = Order::count();
         $pendingOrders = Order::where('status', 'pending')->count();
@@ -48,49 +48,40 @@ class AdminController extends Controller
 
         $ticketToAssign = SupportTicket::where('status', 'open')->first();
 
-        // Thống kê trạng thái đơn hàng
         $orderStats = [
             'pending' => Order::where('status', 'pending')->count(),
             'processing' => Order::where('status', 'processing')->count(),
             'completed' => Order::where('status', 'completed')->count(),
         ];
 
-        // Doanh thu theo tháng (biểu đồ)
         $monthlyRevenue = Order::selectRaw('MONTH(created_at) as month, SUM(total_amount) as revenue')
             ->where('status', 'completed')
             ->groupBy('month')
             ->orderBy('month')
-            ->pluck('revenue', 'month'); // Trả về collection dạng [month => revenue]
+            ->pluck('revenue', 'month');
 
-        // Chuẩn bị dữ liệu cho Chart.js (tháng 1-12)
         $revenueData = [];
         for ($i = 1; $i <= 12; $i++) {
-            $revenueData[] = $monthlyRevenue[$i] ?? 0; // Nếu tháng không có doanh thu thì 0
+            $revenueData[] = $monthlyRevenue[$i] ?? 0;
         }
 
-        // Đơn hàng mới hôm nay
         $todayOrders = Order::whereDate('created_at', today())->count();
-
-        // Sản phẩm sắp hết hàng (<10 sản phẩm)
         $lowStockProducts = Product::where('stock_quantity', '<', 10)->count();
-
-        // Top 5 sản phẩm bán chạy
         $topProducts = Product::withCount('orderItems')
             ->orderBy('order_items_count', 'desc')
             ->take(5)
             ->get();
-
-        // Đơn hàng gần đây
         $recentOrders = Order::with('customer')
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get();
+        $reviews = Review::with(['product', 'user'])->paginate(10); // Thêm truy vấn cho reviews
 
         return view('admin.dashboard', compact(
             'totalProducts', 'totalOrders', 'totalUsers', 'totalRevenue',
             'todayOrders', 'lowStockProducts', 'topProducts', 'recentOrders',
             'activePromotions', 'orderStats', 'openTickets', 'pendingOrders',
-            'ticketToAssign', 'revenueData'
+            'ticketToAssign', 'revenueData', 'reviews'
         ));
     }
 

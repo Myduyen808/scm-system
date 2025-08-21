@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Order;
 use App\Models\Promotion;
+use App\Models\Review; // Thêm dòng này
 use App\Models\SupportTicket;
 use Illuminate\Support\Facades\Auth;
 
@@ -17,7 +18,7 @@ class EmployeeController extends Controller
         $this->middleware('role:employee');
     }
 
-    public function dashboard()
+public function dashboard()
     {
         $totalProducts = Product::count();
         $pendingOrders = Order::where('status', 'pending')->count();
@@ -31,11 +32,15 @@ class EmployeeController extends Controller
             'processing' => Order::where('status', 'processing')->count(),
             'completed' => Order::where('status', 'completed')->count(),
         ];
-
         // Lấy danh sách sản phẩm đã phê duyệt gần đây (giới hạn 5)
         $approvedProducts = Product::where('is_approved', true)
-            ->with('inventory') // Load thông tin tồn kho
+            ->with('inventory')
             ->orderBy('updated_at', 'desc')
+            ->limit(5)
+            ->get();
+        // Lấy 5 đánh giá mới nhất
+        $reviews = Review::with(['product', 'user'])
+            ->latest()
             ->limit(5)
             ->get();
 
@@ -45,7 +50,8 @@ class EmployeeController extends Controller
             'openTickets',
             'activePromotions',
             'orderStats',
-            'approvedProducts'
+            'approvedProducts',
+            'reviews'
         ));
     }
 
@@ -333,5 +339,22 @@ class EmployeeController extends Controller
         }
 
         return redirect()->route('employee.orders')->with('success', 'Cập nhật trạng thái đơn hàng thành công!');
+    }
+
+    public function reviews()
+    {
+        $reviews = Review::with(['product', 'user'])->latest()->paginate(10);
+        return view('employee.reviews.index', compact('reviews'));
+    }
+
+    public function showReview(Review $review)
+    {
+        return view('employee.reviews.show', compact('review'));
+    }
+
+    public function destroyReview(Review $review)
+    {
+        $review->delete();
+        return redirect()->route('employee.reviews')->with('success', 'Đánh giá đã được xóa thành công.');
     }
 }

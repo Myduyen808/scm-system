@@ -8,6 +8,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\Admin\ReviewController;
 
 // Trang chủ public
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -129,7 +130,10 @@ Route::middleware('auth')->group(function () {
 
         Route::post('/promotions/{promotion}/apply-all-products', [AdminController::class, 'applyAllProducts'])->name('promotions.apply-all-products');
 
-        //đánh giá sản phầm
+    // Route quản lý đánh giá
+    Route::get('/reviews', [ReviewController::class, 'index'])->name('reviews');
+    Route::get('/reviews/{review}', [ReviewController::class, 'show'])->name('reviews.show');
+    Route::delete('/reviews/{review}', [ReviewController::class, 'destroy'])->name('reviews.delete');
 
         });
 
@@ -167,6 +171,11 @@ Route::middleware(['auth', 'role:employee'])->prefix('employee')->group(function
     Route::get('/pending-products', [ProductController::class, 'pendingProducts'])->name('pending.products');
     Route::patch('/products/{id}/approve', [ProductController::class, 'approve'])->name('products.approve');
     Route::get('/approved-products', [ProductController::class, 'approvedProducts'])->name('approved.products');
+
+    // Route mới cho quản lý đánh giá của nhân viên
+    Route::get('/reviews', [EmployeeController::class, 'reviews'])->name('employee.reviews');
+    Route::get('/reviews/{review}', [EmployeeController::class, 'showReview'])->name('employee.reviews.show');
+    Route::delete('/reviews/{review}', [EmployeeController::class, 'destroyReview'])->name('employee.reviews.delete');
 
 });
 

@@ -28,6 +28,7 @@ class RolePermissionSeeder extends Seeder
             'update stock',
             'manage tickets',
             'approve products', // Mới: Quyền approve sản phẩm từ Supplier
+            'manage reviews'
         ];
 
         foreach (array_unique($permissions) as $permission) {
@@ -39,7 +40,7 @@ class RolePermissionSeeder extends Seeder
         $adminRole->syncPermissions($permissions); // Admin có tất cả quyền
 
         $employeeRole = Role::firstOrCreate(['name' => 'employee']);
-        $employeeRole->syncPermissions(['manage inventory', 'manage orders', 'manage promotions', 'support customer', 'view reports','approve products',]);
+        $employeeRole->syncPermissions(['manage inventory', 'manage orders', 'manage promotions', 'support customer', 'view reports','approve products','manage reviews']);
 
         $customerRole = Role::firstOrCreate(['name' => 'customer']);
         $customerRole->syncPermissions(['view products', 'place orders']);

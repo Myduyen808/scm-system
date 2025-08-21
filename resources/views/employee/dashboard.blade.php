@@ -34,20 +34,6 @@ use App\Models\User;
         </div>
         @endcan
 
-        {{-- @can('approve products')
-            <!-- Phê duyệt sản phẩm -->
-            <div class="col-md-4 mb-4">
-                <div class="card h-100 border-warning">
-                    <div class="card-body text-center">
-                        <i class="fas fa-check-circle fa-3x text-warning mb-3"></i>
-                        <h5 class="card-title">Phê duyệt sản phẩm</h5>
-                        <p class="card-text">Duyệt sản phẩm từ nhà cung cấp</p>
-                        <a href="{{ route('admin.approved.products') }}" class="btn btn-warning btn-block mt-2">Xem tất cả</a>
-                    </div>
-                </div>
-            </div>
-        @endcan --}}
-
         @can('manage orders')
         <!-- Xử lý đơn hàng -->
         <div class="col-md-4 mb-4">
@@ -79,7 +65,66 @@ use App\Models\User;
             </div>
         </div>
         @endcan
+
+        @can('manage reviews')
+        <!-- Quản lý đánh giá -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-warning">
+                <div class="card-body text-center">
+                    <i class="fas fa-star fa-4x text-warning mb-3"></i>
+                    <h5 class="card-title">Quản lý đánh giá</h5>
+                    <p class="card-text">Xem và xóa đánh giá sản phẩm</p>
+                    <a href="{{ route('employee.reviews') }}" class="btn btn-warning btn-block">
+                        <i class="fas fa-arrow-right"></i> Vào quản lý
+                    </a>
+                </div>
+            </div>
+        </div>
+        @endcan
     </div>
+
+    <!-- Danh sách đánh giá mới nhất -->
+    @can('manage reviews')
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5>Danh sách đánh giá mới nhất</h5>
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Sản phẩm</th>
+                                <th>Khách hàng</th>
+                                <th>Điểm</th>
+                                <th>Nội dung</th>
+                                <th>Ngày tạo</th>
+                                <th>Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($reviews as $review)
+                                <tr>
+                                    <td>{{ $review->id }}</td>
+                                    <td>{{ $review->product->name ?? 'N/A' }}</td>
+                                    <td>{{ $review->user->name ?? 'N/A' }}</td>
+                                    <td>{{ $review->rating }}</td>
+                                    <td>{{ Str::limit($review->comment, 50) }}</td>
+                                    <td>{{ $review->created_at->format('d/m/Y H:i') }}</td>
+                                    <td>
+                                        <a href="{{ route('employee.reviews.show', $review) }}" class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i> Xem
+                                        </a>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endcan
 
     <!-- Statistics Cards -->
     <div class="row mt-4">

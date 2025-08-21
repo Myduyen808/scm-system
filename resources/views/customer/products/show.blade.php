@@ -7,7 +7,13 @@
     <div class="row">
         <!-- Hình ảnh sản phẩm -->
         <div class="col-md-6">
-            <div class="card shadow-sm">
+            <div class="card shadow-sm position-relative">
+                @if($product->regular_price && $product->current_price < $product->regular_price)
+                    <?php
+                        $discountPercentage = round((($product->regular_price - $product->current_price) / $product->regular_price) * 100);
+                    ?>
+                    <span class="sale-badge">Giảm {{ $discountPercentage }}%</span>
+                @endif
                 <img src="{{ $product->image ? Storage::url($product->image) : 'https://via.placeholder.com/400x300' }}"
                      alt="{{ $product->name }}" class="card-img-top img-fluid rounded"
                      style="max-height: 400px; object-fit: contain; width: 100%;">
@@ -56,4 +62,31 @@
         </div>
     </div>
 </div>
+@endsection
+
+@section('styles')
+<style>
+    .sale-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background-color: #ff4444;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        font-size: 14px;
+        transform: rotate(-20deg);
+        z-index: 1;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .card {
+        transition: transform 0.3s ease;
+    }
+
+    .card:hover {
+        transform: scale(1.05);
+    }
+</style>
 @endsection

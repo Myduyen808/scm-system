@@ -3,7 +3,6 @@
 @section('title', 'Admin Dashboard')
 
 @section('content')
-
 <div class="container">
     <div class="row">
         <div class="col-md-12">
@@ -64,17 +63,17 @@
         @endcan
 
         @can('approve products')
-            <!-- Phê duyệt sản phẩm -->
-            <div class="col-md-4 mb-4">
-                <div class="card h-100 border-warning">
-                    <div class="card-body text-center">
-                        <i class="fas fa-check-circle fa-3x text-warning mb-3"></i>
-                        <h5 class="card-title">Phê duyệt sản phẩm</h5>
-                        <p class="card-text">Duyệt sản phẩm từ nhà cung cấp</p>
-                        <a href="{{ route('admin.pending.products') }}" class="btn btn-warning btn-block mt-2">Xem tất cả</a>
-                    </div>
+        <!-- Phê duyệt sản phẩm -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-warning">
+                <div class="card-body text-center">
+                    <i class="fas fa-check-circle fa-3x text-warning mb-3"></i>
+                    <h5 class="card-title">Phê duyệt sản phẩm</h5>
+                    <p class="card-text">Duyệt sản phẩm từ nhà cung cấp</p>
+                    <a href="{{ route('admin.pending.products') }}" class="btn btn-warning btn-block mt-2">Xem tất cả</a>
                 </div>
             </div>
+        </div>
         @endcan
 
         @can('manage inventory')
@@ -141,7 +140,7 @@
         </div>
         @endcan
 
-    @can('manage tickets')
+        @can('manage tickets')
         <!-- Quản lý ticket -->
         @if($ticketToAssign)
             <form action="{{ route('admin.tickets.assign', ['id' => $ticketToAssign->id]) }}" method="POST">
@@ -176,9 +175,77 @@
                 </div>
             </div>
         @endif
-    @endcan
+        @endcan
 
+        @can('manage reviews')
+        <!-- Quản lý đánh giá -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-primary">
+                <div class="card-body text-center">
+                    <i class="fas fa-star fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">Quản lý đánh giá</h5>
+                    <p class="card-text">Xem và quản lý đánh giá của khách hàng</p>
+                    <a href="{{ route('admin.reviews') }}" class="btn btn-primary btn-block">
+                        <i class="fas fa-arrow-right"></i> Xem đánh giá
+                    </a>
+                </div>
+            </div>
+        </div>
+        @endcan
     </div>
+
+    <!-- Quản lý đánh giá của khách hàng -->
+    @can('manage reviews')
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5>Đánh giá của khách hàng</h5>
+                    @if($reviews->isEmpty())
+                        <p class="text-center">Chưa có đánh giá nào.</p>
+                    @else
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Tên sản phẩm</th>
+                                    <th>Khách hàng</th>
+                                    <th>Số sao</th>
+                                    <th>Nội dung</th>
+                                    <th>Ngày gửi</th>
+                                    <th>Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($reviews as $review)
+                                <tr>
+                                    <td>{{ $review->product->name }}</td>
+                                    <td>{{ $review->user ? $review->user->name : 'Khách vãng lai' }}</td>
+                                    <td>{{ $review->rating }} <i class="fas fa-star text-warning"></i></td>
+                                    <td>{{ Str::limit($review->comment, 50, '...') }}</td>
+                                    <td>{{ $review->created_at->format('d/m/Y H:i') }}</td>
+                                    <td>
+                                        <a href="{{ route('admin.reviews.show', $review->id) }}" class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i> Xem
+                                        </a>
+                                        <form action="{{ route('admin.reviews.delete', $review->id) }}" method="POST" class="d-inline">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Bạn có chắc muốn xóa đánh giá này?')">
+                                                <i class="fas fa-trash"></i> Xóa
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                        {{ $reviews->links() }}
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+    @endcan
 
     <!-- Statistics Cards -->
     <div class="row mt-4">
@@ -380,6 +447,7 @@
             </div>
         </div>
     </div>
+
     <!-- Biểu đồ doanh thu theo tháng -->
     <div class="row mt-4">
         <div class="col-md-12">
@@ -422,7 +490,7 @@
                 y: {
                     beginAtZero: true,
                     ticks: {
-                        precision:0 // loại bỏ số thập phân
+                        precision: 0 // loại bỏ số thập phân
                     }
                 }
             }
