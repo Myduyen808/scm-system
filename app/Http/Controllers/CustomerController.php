@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Auth;
 use Stripe\Stripe;
 use App\Models\Cart;
 use Stripe\PaymentIntent;
+use App\Services\PaypalDirectService;
+use App\Services\MoMoDirectService; // Thay đổi này
 use Illuminate\Support\Facades\DB;
 
 
@@ -80,8 +82,11 @@ class CustomerController extends Controller
         $discountedTotal = $cartItems->sum(function ($item) {
             if (!$item->product) return 0;
             $price = $item->product->current_price * $item->quantity;
-            $promotion = $item->product->promotions->first();
-            return $promotion && $promotion->is_valid ? $promotion->getDiscountedPriceAttribute($price) : $price;
+            $promotion = $item->product->promotions->first(); // Lấy khuyến mãi đầu tiên áp dụng cho sản phẩm
+            if ($promotion && $promotion->is_active && $promotion->start_date <= now() && $promotion->end_date >= now()) {
+                return $promotion->getDiscountedPriceAttribute($price); // Giả sử có phương thức getDiscountedPriceAttribute
+            }
+            return $price;
         });
 
         return view('customer.cart.index', compact('cartItems', 'total', 'discountedTotal', 'itemCount'));
@@ -220,7 +225,7 @@ class CustomerController extends Controller
         });
 
         $addresses = Auth::user()->addresses;
-        return view('customer.checkout.index', compact('cartItems', 'total', 'discountedTotal', 'addresses'));
+        return view('customer.checkout.checkout', compact('cartItems', 'total', 'discountedTotal', 'addresses'));
     }
 
     public function placeOrder(Request $request)
@@ -243,7 +248,6 @@ class CustomerController extends Controller
             return $item->product->current_price * $item->quantity;
         });
 
-        // Quy đổi từ VND sang USD (1 USD = 26,351 VND)
         $exchangeRate = 26351;
         $totalInUsd = $total / $exchangeRate;
 
@@ -251,134 +255,270 @@ class CustomerController extends Controller
             return back()->with('error', 'Tổng tiền vượt quá giới hạn thanh toán ($999,999.99). Vui lòng giảm số lượng hoặc liên hệ hỗ trợ!');
         }
 
-        DB::beginTransaction();
-        try {
-            // Tạo order
-            $order = Order::create([
-                'order_number'     => 'ORD-' . time(),
-                'customer_id'      => Auth::id(),
-                'total_amount'     => $total, // VND
-                'status'           => 'pending',
-                'shipping_address' => $address->address_line,
-                'payment_method'   => 'stripe',
-                'payment_status'   => 'pending',
-            ]);
-
-            foreach ($cartItems as $item) {
-                OrderItem::create([
-                    'order_id'   => $order->id,
-                    'product_id' => $item->product_id,
-                    'quantity'   => $item->quantity,
-                    'price'      => $item->product->current_price,
-                ]);
-                $item->product->inventory->decrement('stock', $item->quantity);
-            }
-
-            // Lưu Payment record
-            Payment::create([
-                'order_id'       => $order->id,
-                'payment_method' => 'stripe',
-                'amount'         => $total,
-                'currency'       => 'VND',
-                'transaction_id' => null,
-                'status'         => 'pending',
-            ]);
-
-            // Xóa giỏ hàng
-            Cart::where('user_id', Auth::id())->delete();
-
-            // Stripe config
-            $stripeSecret = env('STRIPE_SECRET_KEY');
-            if (empty($stripeSecret)) {
-                throw new \Exception('Stripe Secret Key không tồn tại hoặc chưa được cấu hình trong .env');
-            }
-
-            Stripe::setApiKey($stripeSecret);
-
-            // Tạo PaymentIntent
-            $paymentIntent = PaymentIntent::create([
-                'amount'   => max(1, (int) round($totalInUsd * 100)), // phải >= 1 cent
-                'currency' => 'usd',
-                'metadata' => [
-                    'order_id' => $order->id
-                ],
-            ]);
-
-            DB::commit();
-
-            return view('customer.checkout.confirm', compact('order', 'paymentIntent'));
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Lỗi đặt hàng: ' . $e->getMessage());
-            return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
+        $stripeSecret = env('STRIPE_SECRET_KEY');
+        if (empty($stripeSecret)) {
+            throw new \Exception('Stripe Secret Key không tồn tại hoặc chưa được cấu hình trong .env');
         }
+
+        Stripe::setApiKey($stripeSecret);
+
+        $cartItemsData = $cartItems->map(function ($item) {
+            return [
+                'product_id' => $item->product_id,
+                'quantity' => $item->quantity,
+                'price' => $item->product->current_price,
+            ];
+        })->all();
+
+        $paymentIntent = PaymentIntent::create([
+            'amount'   => max(1, (int) round($totalInUsd * 100)),
+            'currency' => 'usd',
+            'metadata' => [
+                'cart_items' => json_encode($cartItemsData),
+                'address' => $address->address_line,
+                'total' => $total,
+                'payment_method' => $request->input('payment_method', 'stripe'),
+            ],
+        ]);
+
+        return view('customer.checkout.confirm', compact('cartItems', 'total', 'address', 'paymentIntent'));
     }
 
-    public function processPayment(Request $request, $orderId)
-        {
-            $order = Order::findOrFail($orderId);
-            if ($order->customer_id !== Auth::id()) {
-                abort(403);
-            }
-
-            $paymentMethod = $request->input('payment_method');
-            $totalInUsd = $order->total_amount / 26351; // Chuyển VND sang USD
-
-            if ($paymentMethod === 'stripe') {
-                Stripe::setApiKey(env('STRIPE_SECRET_KEY'));
-                $paymentIntent = PaymentIntent::create([
-                    'amount' => (int)($totalInUsd * 100),
-                    'currency' => 'usd',
-                    'metadata' => ['order_id' => $order->id],
-                ]);
-                return view('customer.checkout.confirm', compact('order', 'paymentIntent'));
-            } elseif ($paymentMethod === 'paypal') {
-                $paypalService = new PaypalService(); // Bây giờ sẽ nhận diện được
-                $approvalUrl = $paypalService->createPayment($order, $totalInUsd);
-                return redirect($approvalUrl);
-            } elseif ($paymentMethod === 'momo') {
-                $momoService = new MomoService();
-                $payUrl = $momoService->createPayment($order, $order->total_amount);
-                return redirect($payUrl);
-            }
-
-            return back()->with('error', 'Phương thức thanh toán không hợp lệ.');
-        }
 
 
-    public function paymentSuccess(Request $request, $orderId)
+    public function processPayment(Request $request, PaypalDirectService $paypal)
     {
-        $order = Order::findOrFail($orderId);
-        if ($order->customer_id !== Auth::id()) {
-            abort(403);
+        $totalVnd = $request->input('total');
+        $exchangeRate = 26351;
+        $totalUsd = $totalVnd / $exchangeRate;
+
+        $order = Order::create([
+            'order_number'     => 'ORD-' . time(),
+            'customer_id'      => Auth::id(),
+            'total_amount'     => $totalVnd,
+            'shipping_address' => $request->input('address'),
+            'payment_method'   => 'paypal',
+            'status'           => 'pending',
+        ]);
+
+        $paypalOrder = $paypal->createOrder(
+            $totalUsd,
+            route('customer.paypal.success', ['order' => $order->id]),
+            route('customer.paypal.cancel', ['order' => $order->id])
+        );
+
+        foreach ($paypalOrder['links'] as $link) {
+            if ($link['rel'] === 'approve') {
+                return redirect()->away($link['href']);
+            }
         }
 
+        return back()->with('error', 'Không tìm thấy link PayPal.');
+    }
+
+
+
+    public function paymentSuccess(Request $request)
+    {
         $paymentIntentId = $request->input('payment_intent_id');
-        if ($paymentIntentId) {
-            \Stripe\Stripe::setApiKey(env('STRIPE_SECRET_KEY'));
-            $paymentIntent = \Stripe\PaymentIntent::retrieve($paymentIntentId);
+        if (!$paymentIntentId) {
+            return back()->with('error', 'Dữ liệu thanh toán không hợp lệ.');
+        }
 
-            if ($paymentIntent->status === 'succeeded') {
-                $order->payment_status = 'paid';
-                $order->status = 'processing';
-                $order->save();
+        \Stripe\Stripe::setApiKey(env('STRIPE_SECRET_KEY'));
+        $paymentIntent = \Stripe\PaymentIntent::retrieve($paymentIntentId);
 
-                // Cập nhật hoặc tạo bản ghi payment
-                $order->payment()->updateOrCreate(
-                    ['order_id' => $order->id],
-                    [
-                        'transaction_id' => $paymentIntentId,
-                        'status' => 'paid',
-                        'amount' => $order->total_amount
-                    ]
-                );
+        if ($paymentIntent->status === 'succeeded') {
+            $metadata = $paymentIntent->metadata;
+            $cartItemsData = json_decode($metadata['cart_items'], true);
+            $address = $metadata['address'];
+            $total = $metadata['total'];
+            $paymentMethod = $metadata['payment_method'];
+
+            $cartItems = Cart::with(['product', 'product.inventory'])
+                ->where('user_id', Auth::id())
+                ->whereIn('product_id', array_column($cartItemsData, 'product_id'))
+                ->get();
+
+            DB::beginTransaction();
+            try {
+                $order = Order::create([
+                    'order_number'     => 'ORD-' . time(),
+                    'customer_id'      => Auth::id(),
+                    'total_amount'     => $total,
+                    'status'           => 'processing',
+                    'shipping_address' => $address,
+                    'payment_method'   => $paymentMethod,
+                    'payment_status'   => 'paid',
+                ]);
+
+                foreach ($cartItems as $item) {
+                    $itemData = collect($cartItemsData)->firstWhere('product_id', $item->product_id);
+                    OrderItem::create([
+                        'order_id'   => $order->id,
+                        'product_id' => $item->product_id,
+                        'quantity'   => $itemData['quantity'],
+                        'price'      => $item->product->current_price,
+                    ]);
+                    $item->product->inventory->decrement('stock', $itemData['quantity']);
+                }
+
+                Payment::create([
+                    'order_id'       => $order->id,
+                    'payment_method' => $paymentMethod,
+                    'amount'         => $total,
+                    'currency'       => 'VND',
+                    'transaction_id' => $paymentIntentId,
+                    'status'         => 'paid',
+                ]);
+
+                Cart::where('user_id', Auth::id())->delete();
+
+                DB::commit();
 
                 return redirect()->route('customer.orders.show', $order->id)->with('success', 'Thanh toán Stripe thành công!');
+            } catch (\Exception $e) {
+                DB::rollBack();
+                \Log::error('Lỗi tạo đơn hàng sau thanh toán: ' . $e->getMessage());
+                return back()->with('error', 'Có lỗi khi tạo đơn hàng.');
             }
         }
 
         return back()->with('error', 'Thanh toán không thành công.');
+    }
+
+    // Thêm phương thức xử lý PayPal success
+    public function paypalSuccess(Request $request, $orderId, PaypalDirectService $paypal)
+    {
+        $paypalOrderId = $request->query('token');
+        if (!$paypalOrderId) {
+            return redirect()->route('customer.checkout')
+                ->with('error', 'Thiếu mã order PayPal.');
+        }
+
+        try {
+            $capture = $paypal->captureOrder($paypalOrderId);
+            \Log::info('PayPal Capture Response: ' . json_encode($capture));
+
+            if (!isset($capture['status']) || $capture['status'] !== 'COMPLETED') {
+                return redirect()->route('customer.checkout')
+                    ->with('error', 'Thanh toán PayPal không thành công. Trạng thái: ' . ($capture['status'] ?? 'Không xác định'));
+            }
+
+            DB::beginTransaction();
+
+            $order = Order::findOrFail($orderId);
+
+            // **QUAN TRỌNG: Kiểm tra và tạo OrderItems nếu chưa có**
+            if ($order->orderItems->count() == 0) {
+                $cartItems = Cart::where('user_id', Auth::id())->with('product')->get();
+
+                foreach ($cartItems as $cartItem) {
+                    OrderItem::create([
+                        'order_id' => $order->id,
+                        'product_id' => $cartItem->product_id,
+                        'quantity' => $cartItem->quantity,
+                        'price' => $cartItem->product->current_price,
+                        'total' => $cartItem->quantity * $cartItem->product->current_price
+                    ]);
+                }
+            }
+
+            $order->status = 'processing';
+            $order->payment_status = 'paid';
+            $order->save();
+
+            Payment::create([
+                'order_id'       => $order->id,
+                'payment_method' => 'paypal',
+                'amount'         => $order->total_amount / 26351,
+                'currency'       => 'USD',
+                'transaction_id' => $paypalOrderId,
+                'status'         => 'paid',
+            ]);
+
+            Cart::where('user_id', Auth::id())->delete();
+
+            DB::commit();
+
+            return redirect()->route('customer.orders.show', $order->id)
+                ->with('success', 'Thanh toán PayPal thành công!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Lỗi PayPal success: ' . $e->getMessage());
+            return redirect()->route('customer.checkout')
+                ->with('error', 'Có lỗi khi xử lý thanh toán: ' . $e->getMessage());
+        }
+    }
+
+    public function paypalCreate(Request $request, PaypalDirectService $paypal)
+{
+    try {
+        $cartItems = Cart::where('user_id', Auth::id())->with('product')->get();
+
+        if ($cartItems->isEmpty()) {
+            return redirect()->route('customer.cart')
+                ->with('error', 'Giỏ hàng trống.');
+        }
+
+        $total = $cartItems->sum(function ($item) {
+            return $item->quantity * $item->product->current_price;
+        });
+
+        DB::beginTransaction();
+
+        // Tạo Order
+        $order = Order::create([
+            'user_id' => Auth::id(),
+            'total_amount' => $total,
+            'status' => 'pending',
+            'payment_status' => 'pending',
+            'shipping_address' => $request->address ?? 'Địa chỉ mặc định',
+        ]);
+
+        // **QUAN TRỌNG: Tạo OrderItems ngay khi tạo Order**
+        foreach ($cartItems as $cartItem) {
+            OrderItem::create([
+                'order_id' => $order->id,
+                'product_id' => $cartItem->product_id,
+                'quantity' => $cartItem->quantity,
+                'price' => $cartItem->product->current_price,
+                'total' => $cartItem->quantity * $cartItem->product->current_price
+            ]);
+        }
+
+        $totalUsd = $total / 26351; // Chuyển đổi sang USD
+
+        $paypalOrder = $paypal->createOrder(
+            $totalUsd,
+            route('customer.paypal.success', $order->id),
+            route('customer.paypal.cancel', $order->id)
+        );
+
+        DB::commit();
+
+        // Redirect đến PayPal
+        foreach ($paypalOrder['links'] as $link) {
+            if ($link['rel'] === 'approve') {
+                return redirect($link['href']);
+            }
+        }
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        \Log::error('Lỗi PayPal create: ' . $e->getMessage());
+        return redirect()->route('customer.checkout')
+            ->with('error', 'Có lỗi khi tạo thanh toán PayPal: ' . $e->getMessage());
+    }
+    }
+
+
+    public function paypalCancel(Request $request, $orderId)
+    {
+        $order = Order::findOrFail($orderId);
+        $order->update(['status' => 'cancelled']);
+        return redirect()->route('customer.checkout')->with('error', 'Thanh toán PayPal đã bị hủy.');
     }
 
     public function orders(Request $request)
@@ -630,5 +770,115 @@ class CustomerController extends Controller
         }
 
         return view('customer.orders.track', compact('order', 'errorMessage'));
+    }
+
+
+
+public function momoCreate(Request $request, MoMoDirectService $momo) // Thay MockMoMoService bằng MoMoDirectService
+    {
+        try {
+            $cartItems = Cart::where('user_id', Auth::id())->with('product')->get();
+
+            if ($cartItems->isEmpty()) {
+                return redirect()->route('customer.cart')
+                    ->with('error', 'Giỏ hàng trống.');
+            }
+
+            $total = $cartItems->sum(function ($item) {
+                return $item->quantity * ($item->product->current_price ?? 0);
+            });
+
+            $address = $request->input('address') ?? 'Địa chỉ mặc định';
+
+            DB::beginTransaction();
+
+            $order = Order::create([
+                'user_id' => Auth::id(),
+                'total_amount' => $total,
+                'status' => 'pending',
+                'payment_status' => 'pending',
+                'shipping_address' => $address,
+            ]);
+
+            foreach ($cartItems as $cartItem) {
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $cartItem->product_id,
+                    'quantity' => $cartItem->quantity,
+                    'price' => $cartItem->product->current_price ?? 0,
+                    'total' => $cartItem->quantity * ($cartItem->product->current_price ?? 0)
+                ]);
+            }
+
+            $momoOrder = $momo->createOrder(
+                $total,
+                route('customer.momo.success', $order->id),
+                route('customer.momo.notify', $order->id)
+            );
+
+            DB::commit();
+
+            if (isset($momoOrder['payUrl'])) {
+                return redirect()->away($momoOrder['payUrl']);
+            }
+
+            return back()->with('error', 'Không tìm thấy URL thanh toán MoMo.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Lỗi MoMo create: ' . $e->getMessage());
+            return redirect()->route('customer.checkout')
+                ->with('error', 'Có lỗi khi tạo thanh toán MoMo: ' . $e->getMessage());
+        }
+    }
+
+    public function momoSuccess(Request $request, $orderId, MoMoDirectService $momo) // Thay MockMoMoService bằng MoMoDirectService
+    {
+        $transId = $request->query('transId');
+        if (!$transId) {
+            return redirect()->route('customer.checkout')
+                ->with('error', 'Thiếu mã giao dịch MoMo.');
+        }
+
+        try {
+            $verified = $momo->verifyPayment($orderId);
+            if (!$verified) {
+                return redirect()->route('customer.checkout')
+                    ->with('error', 'Xác minh thanh toán MoMo thất bại.');
+            }
+
+            DB::beginTransaction();
+
+            $order = Order::with('orderItems')->findOrFail($orderId);
+            $order->status = 'processing';
+            $order->payment_status = 'paid';
+            $order->save();
+
+            Payment::create([
+                'order_id' => $order->id,
+                'payment_method' => 'momo',
+                'amount' => $order->total_amount,
+                'currency' => 'VND',
+                'transaction_id' => $transId,
+                'status' => 'paid',
+            ]);
+
+            Cart::where('user_id', Auth::id())->delete();
+
+            DB::commit();
+
+            return redirect()->route('customer.orders.show', $order->id)
+                ->with('success', 'Thanh toán MoMo thành công!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Lỗi MoMo success: ' . $e->getMessage());
+            return redirect()->route('customer.checkout')
+                ->with('error', 'Có lỗi khi xử lý thanh toán MoMo: ' . $e->getMessage());
+        }
+    }
+
+    public function momoNotify(Request $request, $orderId)
+    {
+        Log::info('MoMo Notify: ' . json_encode($request->all()));
+        return response('OK', 200);
     }
 }

@@ -30,7 +30,10 @@ class Order extends Model
     {
         return $this->belongsTo(User::class, 'customer_id'); // Hoặc thay 'customer_id' bằng cột thực tế nếu khác
     }
-
+    public function items()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);

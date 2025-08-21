@@ -62,21 +62,6 @@
             <p><strong>Tổng sau giảm giá: {{ number_format($discountedTotal, 0, ',', '.') }} đ</strong></p>
         @endif
 
-        <!-- Form Checkout -->
-        <div class="form-group">
-            <label for="address_id">Chọn địa chỉ giao hàng:</label>
-            <select name="address_id" id="address_id" class="form-control" required>
-                @forelse (Auth::user()->addresses as $address)
-                    <option value="{{ $address->id }}">{{ $address->name }} - {{ $address->address_line }}</option>
-                @empty
-                    <option value="" disabled>Chưa có địa chỉ. Vui lòng thêm địa chỉ!</option>
-                @endforelse
-            </select>
-            @if (Auth::user()->addresses->isEmpty())
-                <a href="{{ route('customer.addresses.create') }}" class="btn btn-link mt-2">Thêm địa chỉ mới</a>
-            @endif
-        </div>
-
         <!-- Nút Thanh toán -->
         <form action="{{ route('customer.checkout.store') }}" method="POST" class="mt-3">
             @csrf

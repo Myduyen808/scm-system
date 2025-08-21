@@ -161,15 +161,15 @@ Route::middleware(['auth', 'role:employee'])->prefix('employee')->group(function
 
 });
 
-//customer routes
+// Routes cho khách hàng (customer)
 Route::middleware(['auth', 'role:customer'])->group(function () {
     Route::get('/customer/home', [CustomerController::class, 'home'])->name('customer.home');
     Route::get('/customer/products', [CustomerController::class, 'products'])->name('customer.products');
     Route::get('/customer/products/{id}', [CustomerController::class, 'showProduct'])->name('customer.products.show');
     Route::post('/customer/cart/add/{id}', [CustomerController::class, 'addToCart'])->name('customer.cart.add');
     Route::get('/customer/cart', [CustomerController::class, 'cart'])->name('customer.cart');
-    Route::post('/customer/cart/update/{id}', [CustomerController::class, 'updateCart'])->name('cart.update');
-    Route::delete('/customer/cart/remove/{id}', [CustomerController::class, 'removeFromCart'])->name('cart.remove');
+    Route::post('/cart/update/{id}', [CustomerController::class, 'updateCart'])->name('cart.update');
+    Route::delete('/cart/remove/{id}', [CustomerController::class, 'removeFromCart'])->name('cart.remove');
     Route::get('/customer/checkout', [CustomerController::class, 'checkout'])->name('customer.checkout');
     Route::post('/customer/checkout', [CustomerController::class, 'placeOrder'])->name('customer.checkout.store');
     Route::get('/customer/orders', [CustomerController::class, 'orders'])->name('customer.orders');
@@ -190,9 +190,21 @@ Route::middleware(['auth', 'role:customer'])->group(function () {
     Route::get('/customer/reviews/create/{product_id}', [CustomerController::class, 'createReview'])->name('customer.reviews.create');
     Route::post('/customer/reviews', [CustomerController::class, 'storeReview'])->name('customer.reviews.store');
     Route::get('/customer/promotions', [CustomerController::class, 'promotions'])->name('customer.promotions');
-    Route::post('/customer/payment/success/{order}', [CustomerController::class, 'paymentSuccess'])->name('customer.payment.success');
+    Route::post('/customer/payment/success', [CustomerController::class, 'paymentSuccess'])->name('customer.payment.success');
     Route::post('/customer/payment/process/{order}', [CustomerController::class, 'processPayment'])->name('customer.payment.process');
+
+    // Thêm route cho PayPal
+
+    Route::post('/customer/paypal/create', [CustomerController::class, 'processPayment'])->name('customer.paypal.create');
+    Route::get('/customer/paypal/success/{order}', [CustomerController::class, 'paypalSuccess'])->name('customer.paypal.success');
+    Route::get('/customer/paypal/cancel/{order}', [CustomerController::class, 'paypalCancel'])->name('customer.paypal.cancel');
+
+    //momo
+    Route::post('/customer/momo/create', [CustomerController::class, 'momoCreate'])->name('customer.momo.create');
+    Route::get('/customer/momo/success/{order}', [CustomerController::class, 'momoSuccess'])->name('customer.momo.success');
+    Route::post('/customer/momo/notify/{order}', [CustomerController::class, 'momoNotify'])->name('customer.momo.notify');
 });
+
 
 // Routes cho Supplier
 Route::middleware(['auth', 'role:supplier'])->group(function () {
