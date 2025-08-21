@@ -82,6 +82,11 @@
                                                         <i class="fas fa-trash"></i> Xóa
                                                     </button>
                                                 </form>
+                                                <!-- Nút áp dụng cho tất cả sản phẩm -->
+                                                <button class="btn btn-info btn-sm mt-2 apply-all-products-btn"
+                                                        data-promotion-id="{{ $promotion->id }}">
+                                                    <i class="fas fa-check-double"></i> Áp dụng tất cả
+                                                </button>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -104,6 +109,13 @@
 @section('scripts')
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!--⚡️ Thêm base URL -->
+<script>
+    const applyProductUrl = "{{ route('admin.promotions.apply-product', ['promotion' => ':id']) }}";
+    const applyAllProductsUrl = "{{ route('admin.promotions.apply-all-products', ['promotion' => ':id']) }}";
+</script>
+
 <script>
 $(document).ready(function() {
     // Hiển thị nút "Áp dụng" khi chọn sản phẩm
@@ -117,7 +129,7 @@ $(document).ready(function() {
         }
     });
 
-    // Xử lý áp dụng sản phẩm
+    // Áp dụng sản phẩm
     $('.apply-product-btn').on('click', function() {
         const promotionId = $(this).data('promotion-id');
         const productId = $(this).prev('.apply-product').val();
@@ -128,18 +140,42 @@ $(document).ready(function() {
         }
 
         $.ajax({
-            url: `/admin/promotions/${promotionId}/apply-product`,
+            url: applyProductUrl.replace(':id', promotionId),
             method: 'POST',
             data: {
                 _token: '{{ csrf_token() }}',
                 product_id: productId
             },
             success: function(response) {
-                alert('Áp dụng sản phẩm thành công!');
-                location.reload(); // Tải lại trang để cập nhật
+                alert(response.message);
+                location.reload();
             },
             error: function(xhr) {
                 alert('Có lỗi xảy ra: ' + (xhr.responseJSON?.message || 'Không thể áp dụng sản phẩm!'));
+            }
+        });
+    });
+
+    // Áp dụng cho tất cả sản phẩm
+    $('.apply-all-products-btn').on('click', function() {
+        const promotionId = $(this).data('promotion-id');
+
+        if (!confirm('Bạn có chắc muốn áp dụng khuyến mãi này cho tất cả sản phẩm?')) {
+            return;
+        }
+
+        $.ajax({
+            url: applyAllProductsUrl.replace(':id', promotionId),
+            method: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}'
+            },
+            success: function(response) {
+                alert(response.message);
+                location.reload();
+            },
+            error: function(xhr) {
+                alert('Có lỗi xảy ra: ' + (xhr.responseJSON?.message || 'Không thể áp dụng cho tất cả sản phẩm!'));
             }
         });
     });

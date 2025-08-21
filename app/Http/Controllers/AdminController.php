@@ -19,6 +19,7 @@ use App\Models\SupportTicket;
 use App\Models\Promotion;
 use Illuminate\Support\Facades\Artisan;
 use Spatie\Activitylog\Models\Activity;
+use Illuminate\Support\Facades\Log;
 // use App\Models\Supplier;
 
 
@@ -550,6 +551,30 @@ class AdminController extends Controller
         $promotion->products()->attach($request->product_id);
 
         return response()->json(['message' => 'Áp dụng sản phẩm thành công!']);
+    }
+
+    public function applyAllProducts(Request $request, $promotionId)
+    {
+        try {
+            $promotion = Promotion::findOrFail($promotionId);
+
+            // Lấy tất cả sản phẩm được phê duyệt và hoạt động
+            $products = Product::where('is_approved', true)->where('is_active', true)->get();
+
+            if ($products->isEmpty()) {
+                return response()->json(['message' => 'Không có sản phẩm nào để áp dụng!'], 400);
+            }
+
+            // Gắn tất cả sản phẩm vào khuyến mãi
+            $promotion->products()->syncWithoutDetaching($products->pluck('id')->toArray());
+
+            Log::info('Applied promotion ' . $promotionId . ' to all products: ' . json_encode($products->pluck('id')));
+
+            return response()->json(['message' => 'Áp dụng khuyến mãi cho tất cả sản phẩm thành công!']);
+        } catch (\Exception $e) {
+            Log::error('Error in applyAllProducts: ' . $e->getMessage());
+            return response()->json(['message' => 'Có lỗi xảy ra khi áp dụng!'], 500);
+        }
     }
 
     public function create()

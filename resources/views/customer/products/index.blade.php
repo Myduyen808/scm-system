@@ -16,7 +16,13 @@
     <div class="row">
         @forelse($products as $product)
         <div class="col-md-3 mb-4">
-            <div class="card fade-in">
+            <div class="card fade-in position-relative">
+                @if($product->regular_price && $product->current_price < $product->regular_price)
+                    <?php
+                        $discountPercentage = round((($product->regular_price - $product->current_price) / $product->regular_price) * 100);
+                    ?>
+                    <span class="sale-badge">Sale {{ $discountPercentage }}%</span>
+                @endif
                 <a href="{{ route('customer.products.show', $product->id) }}" class="text-decoration-none">
                     <img src="{{ $product->image ? Storage::url($product->image) : 'https://via.placeholder.com/250x200' }}" class="card-img-top" alt="{{ $product->name }}">
                 </a>
@@ -25,11 +31,11 @@
                         <h6 class="card-title">{{ $product->name }}</h6>
                     </a>
                     <p class="card-text">
-                        @if($product->sale_price && $product->sale_price < $product->regular_price)
+                        @if($product->regular_price && $product->current_price < $product->regular_price)
                             <del class="text-muted">₫{{ number_format($product->regular_price, 0, ',', '.') }}</del>
-                            <strong class="text-danger">₫{{ number_format($product->sale_price, 0, ',', '.') }}</strong>
+                            <strong class="text-danger">₫{{ number_format($product->current_price, 0, ',', '.') }}</strong>
                         @else
-                            <strong>₫{{ number_format($product->regular_price, 0, ',', '.') }}</strong>
+                            <strong>₫{{ number_format($product->current_price, 0, ',', '.') }}</strong>
                         @endif
                     </p>
                     <form action="{{ route('customer.cart.add', $product->id) }}" method="POST" class="d-inline">
@@ -51,4 +57,31 @@
     </div>
     {{ $products->links() }}
 </div>
+@endsection
+
+@section('styles')
+<style>
+    .sale-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background-color: #ff4444;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        font-size: 14px;
+        transform: rotate(-20deg);
+        z-index: 1;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .card {
+        transition: transform 0.3s ease;
+    }
+
+    .card:hover {
+        transform: scale(1.05);
+    }
+</style>
 @endsection

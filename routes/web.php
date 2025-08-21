@@ -125,6 +125,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/orders/export', [AdminController::class, 'export'])->name('orders.export');
         Route::get('/orders/stats', [AdminController::class, 'stats'])->name('orders.stats');
 
+        Route::post('/promotions/{promotion}/apply-product', [AdminController::class, 'applyProduct'])->name('promotions.apply-product');
+
+        Route::post('/promotions/{promotion}/apply-all-products', [AdminController::class, 'applyAllProducts'])->name('promotions.apply-all-products');
+
+        //đánh giá sản phầm
+
         });
 
 
@@ -141,12 +147,15 @@ Route::middleware(['auth', 'role:employee'])->prefix('employee')->group(function
     Route::patch('/orders/{order}/status', [EmployeeController::class, 'updateOrderStatus'])->name('employee.orders.update-status');
     Route::get('/orders/{order}', [EmployeeController::class, 'showOrder'])->name('employee.orders.show');
     Route::post('/orders/{order}/cancel', [EmployeeController::class, 'cancelOrder'])->name('employee.orders.cancel');
+
     Route::get('/promotions', [EmployeeController::class, 'promotions'])->name('employee.promotions');
     Route::get('/promotions/create', [EmployeeController::class, 'createPromotion'])->name('employee.promotions.create');
     Route::post('/promotions', [EmployeeController::class, 'storePromotion'])->name('employee.promotions.store');
     Route::get('/promotions/{promotion}/edit', [EmployeeController::class, 'editPromotion'])->name('employee.promotions.edit');
     Route::put('/promotions/{promotion}', [EmployeeController::class, 'updatePromotion'])->name('employee.promotions.update');
     Route::delete('/promotions/{promotion}', [EmployeeController::class, 'destroyPromotion'])->name('employee.promotions.destroy');
+
+
     Route::get('/requests', [EmployeeController::class, 'requests'])->name('employee.requests');
     Route::post('/requests/{request}/process', [EmployeeController::class, 'processRequest'])->name('employee.requests.process');
     Route::get('/support', [EmployeeController::class, 'support'])->name('employee.support');
@@ -203,6 +212,13 @@ Route::middleware(['auth', 'role:customer'])->group(function () {
     Route::post('/customer/momo/create', [CustomerController::class, 'momoCreate'])->name('customer.momo.create');
     Route::get('/customer/momo/success/{order}', [CustomerController::class, 'momoSuccess'])->name('customer.momo.success');
     Route::post('/customer/momo/notify/{order}', [CustomerController::class, 'momoNotify'])->name('customer.momo.notify');
+
+    //đánh giá sản phẩm
+
+    Route::get('/products-for-review', [CustomerController::class, 'productsForReview'])->name('customer.products.for-review');
+    Route::get('/reviews/create/{product}', [CustomerController::class, 'createReview'])->name('customer.reviews.create');
+    Route::post('/reviews/{product}', [CustomerController::class, 'storeReview'])->name('customer.reviews.store');
+
 });
 
 

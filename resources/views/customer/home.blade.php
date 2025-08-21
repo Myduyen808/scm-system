@@ -26,7 +26,7 @@
             </div>
         </div>
 
-    <!-- Card Giỏ hàng -->
+        <!-- Card Giỏ hàng -->
         <div class="col-md-3 mb-4">
             <div class="card border-success">
                 <div class="card-body text-center">
@@ -59,7 +59,7 @@
                     <i class="fas fa-star fa-3x text-warning mb-3"></i>
                     <h5 class="card-title">Đánh giá</h5>
                     <p class="card-text">Đánh giá sản phẩm đã mua</p>
-                    <a href="{{ route('customer.products') }}" class="btn btn-warning">
+                    <a href="{{ route('customer.products.for-review') }}" class="btn btn-warning">
                         <i class="fas fa-arrow-right"></i> Xem sản phẩm để đánh giá
                     </a>
                 </div>
@@ -129,12 +129,21 @@
     <div class="row">
         @forelse($featuredProducts as $product)
         <div class="col-md-3 mb-4">
-            <div class="card">
+            <div class="card position-relative">
+                @if($product->regular_price && $product->current_price < $product->regular_price)
+                    <?php
+                        $discountPercentage = round((($product->regular_price - $product->current_price) / $product->regular_price) * 100);
+                    ?>
+                    <span class="sale-badge">Sale {{ $discountPercentage }}%</span>
+                @endif
                 <img src="{{ $product->image ? Storage::url($product->image) : 'https://via.placeholder.com/250x200' }}" class="card-img-top" alt="{{ $product->name }}">
                 <div class="card-body">
                     <h6 class="card-title">{{ $product->name }}</h6>
                     <p class="card-text">
-                        @if($product->sale_price && $product->sale_price < $product->regular_price)
+                        @if($product->current_price && $product->current_price < ($product->sale_price ?? $product->regular_price))
+                            <del class="text-muted">₫{{ number_format($product->regular_price, 0, ',', '.') }}</del>
+                            <strong class="text-danger">₫{{ number_format($product->current_price, 0, ',', '.') }}</strong>
+                        @elseif($product->sale_price && $product->sale_price < $product->regular_price)
                             <del class="text-muted">₫{{ number_format($product->regular_price, 0, ',', '.') }}</del>
                             <strong class="text-danger">₫{{ number_format($product->sale_price, 0, ',', '.') }}</strong>
                         @else
@@ -159,4 +168,31 @@
         @endforelse
     </div>
 </div>
+@endsection
+
+@section('styles')
+<style>
+    .sale-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background-color: #ff4444;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        font-size: 14px;
+        transform: rotate(-20deg);
+        z-index: 1;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .card {
+        transition: transform 0.3s ease;
+    }
+
+    .card:hover {
+        transform: scale(1.05);
+    }
+</style>
 @endsection

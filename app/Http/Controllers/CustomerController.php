@@ -57,7 +57,8 @@ class CustomerController extends Controller
         $user = auth()->user();
         $cartCount = $user->cartItems()->sum('quantity');
         $query = Product::where('is_approved', true)
-            ->where('is_active', true);
+            ->where('is_active', true)
+            ->with('promotions'); // Tải quan hệ promotions
 
         if ($request->input('search')) {
             $query->where('name', 'like', '%' . $request->input('search') . '%')
@@ -560,12 +561,6 @@ class CustomerController extends Controller
     }
 
 
-    public function createReview($productId)
-    {
-        $product = Product::findOrFail($productId);
-        return view('customer.reviews.create', compact('product'));
-    }
-
     public function storeReview(Request $request, $productId)
     {
         $validated = $request->validate([
@@ -720,7 +715,7 @@ class CustomerController extends Controller
 
     public function showProduct($id)
     {
-        $product = Product::findOrFail($id);
+        $product = Product::with('promotions')->findOrFail($id); // Thêm with('promotions')
         if (!$product->is_approved || !$product->is_active) {
             abort(404);
         }
@@ -881,4 +876,54 @@ public function momoCreate(Request $request, MoMoDirectService $momo) // Thay Mo
         Log::info('MoMo Notify: ' . json_encode($request->all()));
         return response('OK', 200);
     }
+
+    public function productsForReview()
+    {
+        $user = auth()->user();
+        $cartCount = $user->cartItems()->sum('quantity');
+
+        // Lấy các sản phẩm từ đơn hàng đã giao (giả sử trạng thái 'delivered')
+        $orders = $user->orders()->where('status', 'delivered')->get();
+        $reviewedProductIds = $user->reviews()->pluck('product_id')->toArray();
+        $productsForReview = collect();
+
+        foreach ($orders as $order) {
+            $orderItems = $order->items;
+            foreach ($orderItems as $item) {
+                if (!in_array($item->product_id, $reviewedProductIds)) {
+                    $product = Product::with('promotions')->find($item->product_id);
+                    if ($product) {
+                        $productsForReview->push($product);
+                    }
+                }
+            }
+        }
+
+        return view('customer.products-for-review', compact('productsForReview', 'cartCount'));
+    }
+
+    public function createReview($product)
+{
+    $product = Product::findOrFail($product);
+    $cartCount = auth()->user()->cartItems()->sum('quantity');
+    return view('customer.reviews.create', compact('product', 'cartCount'));
+}
+
+// public function storeReview(Request $request, $product)
+// {
+//     $request->validate([
+//         'rating' => 'required|integer|between:1,5',
+//         'comment' => 'required|string|max:1000',
+//     ]);
+
+//     $user = auth()->user();
+//     $review = $user->reviews()->create([
+//         'product_id' => $product,
+//         'rating' => $request->rating,
+//         'comment' => $request->comment,
+//         'reviewed_at' => now(),
+//     ]);
+
+//     return redirect()->route('customer.products.for-review')->with('success', 'Đánh giá đã được gửi thành công!');
+// }
 }

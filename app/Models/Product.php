@@ -46,11 +46,21 @@ class Product extends Model
     {
         return $this->belongsToMany(Promotion::class, 'promotion_product');
     }
-
-// Accessor cho giá hiện tại (ưu tiên sale_price nếu có)
+// Accessor cho giá hiện tại, ưu tiên khuyến mãi nếu có
     public function getCurrentPriceAttribute()
     {
-        return $this->sale_price ?? $this->regular_price;
+        $basePrice = $this->sale_price ?? $this->regular_price ?? 0;
+
+        // Kiểm tra khuyến mãi hợp lệ
+        $activePromotion = $this->promotions->first(function ($promotion) {
+            return $promotion->isValid; // Sử dụng isValid như thuộc tính
+        });
+
+        if ($activePromotion) {
+            return $activePromotion->getDiscountedPriceAttribute($basePrice);
+        }
+
+        return $basePrice;
     }
 
     // Scope để chỉ lấy sản phẩm approved và active

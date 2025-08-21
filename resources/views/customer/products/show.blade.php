@@ -22,7 +22,7 @@
             <div class="mb-4">
                 <h4 class="text-danger">
                     Giá: <strong>₫{{ number_format($product->current_price ?? $product->regular_price ?? 0, 0, ',', '.') }}</strong>
-                    @if($product->regular_price && $product->current_price && $product->current_price < $product->regular_price)
+                    @if($product->regular_price && $product->current_price < $product->regular_price)
                         <span class="text-muted text-decoration-line-through">₫{{ number_format($product->regular_price, 0, ',', '.') }}</span>
                     @endif
                 </h4>

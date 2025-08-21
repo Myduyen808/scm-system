@@ -58,4 +58,10 @@ class User extends Authenticatable
         return $this->hasMany(Product::class, 'supplier_id');
     }
 
+    // Định nghĩa quan hệ với Review
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'user_id');
+    }
+
 }
