@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Order;
-use App\Models\Request as RequestModel; // Alias to avoid conflict with Illuminate\Http\Request
+use App\Models\RequestModel; // tên class chính xác
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
-use App\Models\Inventory; // Thêm model Inventory
+use App\Models\Inventory;
 
 class SupplierController extends Controller
 {
@@ -27,29 +27,58 @@ class SupplierController extends Controller
             ->whereHas('orderItems.product', function ($query) {
                 $query->where('supplier_id', Auth::id());
             })->count();
-        $monthlyRevenue = Order::where('status', 'completed')
+        $monthlyRevenue = Order::where('status', 'delivered') // Thống nhất với 'delivered'
             ->whereHas('orderItems.product', function ($query) {
                 $query->where('supplier_id', Auth::id());
             })
             ->whereBetween('created_at', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])
-            ->sum('total_amount');
+            ->sum('total_amount') ?: 0;
 
-        return view('supplier.dashboard', compact('totalProducts', 'pendingOrders', 'monthlyRevenue'));
+        // Lấy doanh thu theo tháng cho 12 tháng
+        $monthlyRevenues = Order::where('status', 'delivered') // Thống nhất với 'delivered'
+            ->whereHas('orderItems.product', function ($query) {
+                $query->where('supplier_id', Auth::id());
+            })
+            ->selectRaw('MONTH(created_at) as month, SUM(total_amount) as revenue')
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get()
+            ->pluck('revenue', 'month')
+            ->all();
+
+        // Cập nhật labels cho 12 tháng
+        $labels = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+        $data = array_map(function($month) use ($monthlyRevenues) {
+            return $monthlyRevenues[$month] ?? 0; // Gán 0 nếu tháng chưa có doanh thu
+        }, range(1, 12));
+
+        $pendingApprovalCount = Product::where('supplier_id', Auth::id())->where('is_approved', false)->count();
+
+        return view('supplier.dashboard', compact('totalProducts', 'pendingOrders', 'monthlyRevenue', 'labels', 'data', 'pendingApprovalCount'));
     }
 
     // Danh sách sản phẩm
     public function products(Request $request)
     {
-        $query = Product::where('supplier_id', Auth::id());
+        $query = Product::where('supplier_id', Auth::id())
+            ->with(['orderItems' => function ($query) {
+                $query->whereHas('order', function ($q) {
+                    $q->where('status', 'delivered'); // Đảm bảo dùng 'delivered'
+                })->with('order'); // Tải thêm thông tin order nếu cần
+            }])
+            ->with('inventory');
 
         if ($request->input('search')) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->input('search') . '%')
-                  ->orWhere('sku', 'like', '%' . $request->input('search') . '%');
+                ->orWhere('sku', 'like', '%' . $request->input('search') . '%');
             });
         }
 
         $products = $query->orderBy('created_at', 'desc')->paginate(10);
+
+        // Debug log để kiểm tra dữ liệu
+        \Log::info('Products with OrderItems: ', $products->toArray());
 
         return view('supplier.products.index', compact('products'));
     }
@@ -78,13 +107,10 @@ class SupplierController extends Controller
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
 
-        // Bắt đầu transaction để đảm bảo cả Product và Inventory được thêm thành công
         \DB::beginTransaction();
         try {
-            // Tạo sản phẩm
             $product = Product::create($validated);
 
-            // Tạo bản ghi trong inventories với stock từ stock_quantity
             Inventory::create([
                 'product_id' => $product->id,
                 'stock' => $validated['stock_quantity'],
@@ -129,12 +155,10 @@ class SupplierController extends Controller
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
 
-        // Bắt đầu transaction để đảm bảo cả Product và Inventory được cập nhật
         \DB::beginTransaction();
         try {
             $product->update($validated);
 
-            // Cập nhật hoặc tạo bản ghi trong inventories
             $inventory = Inventory::firstOrCreate(
                 ['product_id' => $product->id],
                 ['stock' => $validated['stock_quantity'], 'created_at' => now(), 'updated_at' => now()]
@@ -186,7 +210,7 @@ class SupplierController extends Controller
             $query->where('status', $request->input('status'));
         }
 
-        $orders = $query->with('customer') // Thêm eager loading cho customer
+        $orders = $query->with('customer')
                     ->orderBy('created_at', 'desc')
                     ->paginate(10);
 
@@ -196,7 +220,7 @@ class SupplierController extends Controller
     // Xem chi tiết đơn hàng
     public function showOrder($id)
     {
-        $order = Order::with('orderItems.product', 'customer') // Thêm 'customer' vào eager loading
+        $order = Order::with('orderItems.product', 'customer')
                     ->findOrFail($id);
         if (!$order->orderItems->where('product.supplier_id', Auth::id())->count()) {
             abort(403, 'Bạn không có quyền xem đơn hàng này.');
@@ -207,26 +231,100 @@ class SupplierController extends Controller
     // Danh sách yêu cầu nhập hàng
     public function requests(Request $request)
     {
+        // Debug: kiểm tra user
+        \Log::info('Current Supplier ID: ' . Auth::id());
+        \Log::info('User Role: ' . Auth::user()->roles->pluck('name'));
+
+        // Tạo query trước
         $query = RequestModel::where('supplier_id', Auth::id());
 
-        if ($request->input('search')) {
-            $query->where('request_number', 'like', '%' . $request->input('search') . '%');
+        // Debug: kiểm tra query
+        \Log::info('Raw SQL: ' . $query->toSql());
+        \Log::info('Bindings: ', $query->getBindings());
+
+        // Áp dụng search hoặc filter nếu có
+        if ($search = $request->input('search')) {
+            $query->where('request_number', 'like', "%{$search}%");
         }
-        if ($request->input('status')) {
-            $query->where('status', $request->input('status'));
+        if ($status = $request->input('status')) {
+            $query->where('status', $status);
         }
 
-        $requests = $query->orderBy('created_at', 'desc')->paginate(10);
+        // Load relation product và phân trang
+        $requests = $query->with('product')->orderBy('created_at', 'desc')->paginate(10);
 
         return view('supplier.requests.index', compact('requests'));
     }
 
-    // Xử lý yêu cầu nhập hàng
+
+    public function productReport()
+    {
+        $products = Product::where('supplier_id', Auth::id())
+            ->with(['orderItems' => function ($query) {
+                $query->whereHas('order', function ($q) {
+                    $q->where('status', 'delivered'); // Giữ nguyên 'delivered'
+                })->with('order'); // Thêm with('order') để đồng bộ với products method
+            }])
+            ->get();
+
+        $reports = $products->map(function ($product) {
+            $soldQuantity = $product->orderItems->sum('quantity') ?? 0;
+            $revenue = $product->orderItems->sum(function ($item) {
+                return ($item->price ?? 0) * ($item->quantity ?? 0);
+            }) ?? 0;
+            return [
+                'name' => $product->name,
+                'sold_quantity' => $soldQuantity,
+                'revenue' => $revenue,
+                'image' => $product->image ?? null, // Giữ cột image
+            ];
+        });
+
+        // Debug log để kiểm tra
+        \Log::info('Product Report Data: ', $reports->toArray());
+
+        return view('supplier.products.report', compact('reports'));
+    }
+
+    public function updateOrderStatus(Request $request, $id)
+    {
+        $order = Order::findOrFail($id);
+        if (!$order->orderItems->where('product.supplier_id', Auth::id())->count()) {
+            abort(403);
+        }
+        $validated = $request->validate(['status' => 'required|in:processing,completed,shipped,delivered']);
+        $order->update($validated);
+        return redirect()->route('supplier.orders')->with('success', 'Cập nhật trạng thái đơn hàng thành công!');
+    }
+
+    // Thông báo khi admin hoặc nhân viên phê duyệt sản phẩm
+    public function checkApprovalNotifications()
+    {
+        $pendingProducts = Product::where('supplier_id', Auth::id())
+            ->where('is_approved', false)
+            ->where('updated_at', '>', Auth::user()->last_notification_check)
+            ->get();
+        if ($pendingProducts->count() > 0) {
+            Auth::user()->update(['last_notification_check' => now()]);
+            return redirect()->route('supplier.dashboard')->with('info', 'Có ' . $pendingProducts->count() . ' sản phẩm được cập nhật trạng thái.');
+        }
+        return redirect()->route('supplier.dashboard');
+    }
+
+    public function showRequest($id)
+    {
+        $request = RequestModel::where('supplier_id', Auth::id())->findOrFail($id);
+        return view('supplier.requests.show', compact('request'));
+    }
+
     public function processRequest(Request $request, $id)
     {
         $req = RequestModel::where('supplier_id', Auth::id())->findOrFail($id);
-        $validated = $request->validate(['status' => 'required|in:accepted,rejected']);
-        $req->update($validated);
+        $validated = $request->validate([
+            'status' => 'required|in:accepted,rejected',
+            'note' => 'nullable|string|max:255'
+        ]);
+        $req->update($validated + ['updated_at' => now()]); // Cập nhật thời gian
         return redirect()->route('supplier.requests')->with('success', 'Xử lý yêu cầu thành công!');
     }
 }

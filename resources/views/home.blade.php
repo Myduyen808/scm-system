@@ -1,8 +1,6 @@
 @extends('layouts.app')
 
-
-@section('title', 'Trang chủ - SCM System')
-
+@section('title', 'Trang Chủ - SCM System')
 
 @section('content')
 <!-- Hero Section -->
@@ -35,7 +33,6 @@
     </div>
 </section>
 
-
 <!-- Features Section -->
 <section id="features" class="py-5">
     <div class="container">
@@ -45,7 +42,6 @@
                 <p class="lead text-muted">Những tính năng mạnh mẽ giúp tối ưu hóa chuỗi cung ứng của bạn</p>
             </div>
         </div>
-
 
         <div class="row">
             <div class="col-md-4 mb-4 fade-in">
@@ -60,7 +56,6 @@
                 </div>
             </div>
 
-
             <div class="col-md-4 mb-4 fade-in">
                 <div class="card h-100 text-center p-4">
                     <div class="card-body">
@@ -72,7 +67,6 @@
                     </div>
                 </div>
             </div>
-
 
             <div class="col-md-4 mb-4 fade-in">
                 <div class="card h-100 text-center p-4">
@@ -89,7 +83,6 @@
     </div>
 </section>
 
-
 <!-- Featured Products -->
 @if(isset($featuredProducts) && $featuredProducts->count() > 0)
 <section class="py-5 bg-light">
@@ -97,72 +90,50 @@
         <div class="row text-center mb-5">
             <div class="col-12">
                 <h2 class="fw-bold mb-3">Sản phẩm nổi bật</h2>
-                <p class="lead text-muted">Những sản phẩm được ưa chuộng nhất</p>
+                <p class="lead text-muted">Những sản phẩm bán chạy và có ưu đãi đặc biệt</p>
             </div>
         </div>
-
 
         <div class="row">
             @foreach($featuredProducts as $product)
-            @if($product->is_approved)
             <div class="col-lg-4 col-md-6 mb-4 fade-in">
-                <div class="card product-card h-100">
-                    @if($product->image)
-                        <img src="{{ asset('storage/' . $product->image) }}" class="card-img-top" alt="{{ $product->name }}" onerror="this.src='https://via.placeholder.com/300x200?text=No+Image'">
-                    @else
-                        <img src="https://via.placeholder.com/300x200?text=No+Image" class="card-img-top" alt="{{ $product->name }}">
+                <div class="card position-relative">
+                    @if($product->regular_price && $product->current_price < $product->regular_price)
+                        <?php
+                            $discountPercentage = round((($product->regular_price - $product->current_price) / $product->regular_price) * 100);
+                        ?>
+                        <span class="sale-badge">Sale {{ $discountPercentage }}%</span>
                     @endif
-
-
-                    <div class="card-body d-flex flex-column">
-                        <h5 class="card-title">{{ $product->name }}</h5>
-                        <div class="mb-3">
-                            @if($product->sale_price && $product->sale_price < $product->regular_price)
-                                <span class="price">{{ number_format($product->sale_price, 0, ',', '.') }}đ</span>
-                                <span class="price-old ms-2">{{ number_format($product->regular_price, 0, ',', '.') }}đ</span>
+                    <a href="{{ route('customer.products.show', $product->id) }}" class="text-decoration-none">
+                        <img src="{{ $product->image ? Storage::url($product->image) : 'https://via.placeholder.com/250x200' }}" class="card-img-top" alt="{{ $product->name }}">
+                    </a>
+                    <div class="card-body">
+                        <a href="{{ route('customer.products.show', $product->id) }}" class="text-decoration-none text-dark">
+                            <h6 class="card-title">{{ $product->name }}</h6>
+                        </a>
+                        <p class="card-text">
+                            @if($product->regular_price && $product->current_price < $product->regular_price)
+                                <del class="text-muted">₫{{ number_format($product->regular_price, 0, ',', '.') }}</del>
+                                <strong class="text-danger">₫{{ number_format($product->current_price, 0, ',', '.') }}</strong>
                             @else
-                                <span class="price">{{ number_format($product->regular_price, 0, ',', '.') }}đ</span>
+                                <strong>₫{{ number_format($product->regular_price, 0, ',', '.') }}</strong>
                             @endif
-                        </div>
-
-
-                        <div class="d-flex justify-content-between align-items-center mt-auto">
-                            <small class="text-muted">
-                                <i class="fas fa-box"></i>
-                                Còn {{ $product->inventory ? $product->inventory->stock : 0 }} sản phẩm
-                            </small>
-                            <div class="btn-group">
-                                <a href="{{ url('/products/' . $product->id) }}" class="btn btn-outline-primary btn-sm">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                                @if($product->inventory && $product->inventory->stock > 0)
-                                <form action="{{ route('customer.cart.add', $product->id) }}" method="POST">
-                                    @csrf
-                                    <button type="submit">Thêm vào giỏ</button>
-                                </form>
-
-
-                                    @csrf
-                                    <input type="hidden" name="product_id" value="{{ $product->id }}">
-                                    <input type="hidden" name="quantity" value="1">
-                                    <button type="submit" class="btn btn-primary btn-sm add-to-cart-btn">
-                                        <i class="fas fa-cart-plus"></i>
-                                    </button>
-                                </form>
-                                @else
-                                <button class="btn btn-secondary btn-sm" disabled>
-                                    <i class="fas fa-times"></i> Hết hàng
-                                </button>
-                                @endif
-                            </div>
-                        </div>
+                        </p>
+                        <form action="{{ route('customer.cart.add', $product->id) }}" method="POST" class="d-inline">
+                            @csrf
+                            <input type="hidden" name="quantity" value="1">
+                            <button type="submit" class="btn btn-primary btn-sm add-to-cart-btn">
+                                <i class="fas fa-cart-plus"></i> Thêm vào giỏ
+                            </button>
+                        </form>
+                        <a href="{{ route('customer.reviews.create', $product->id) }}" class="btn btn-warning btn-sm mt-2">
+                            <i class="fas fa-star"></i> Viết đánh giá
+                        </a>
                     </div>
                 </div>
             </div>
-            @endif
             @endforeach
         </div>
-
 
         <div class="text-center">
             <a href="{{ route('customer.products') }}" class="btn btn-primary btn-lg">
@@ -172,7 +143,6 @@
     </div>
 </section>
 @endif
-
 
 <!-- Statistics -->
 <section class="py-5">
@@ -205,4 +175,31 @@
         </div>
     </div>
 </section>
+@endsection
+
+@section('styles')
+<style>
+    .sale-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background-color: #ff4444;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        font-size: 14px;
+        transform: rotate(-20deg);
+        z-index: 1;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .card {
+        transition: transform 0.3s ease;
+    }
+
+    .card:hover {
+        transform: scale(1.05);
+    }
+</style>
 @endsection

@@ -26,7 +26,7 @@
         <div class="col-md-12 mb-4">
             <div class="card">
                 <div class="card-body">
-                    <div id="revenueChart"></div>
+                    <canvas id="revenueChart" height="300"></canvas> <!-- Thêm chiều cao cố định -->
                 </div>
             </div>
         </div>
@@ -37,12 +37,12 @@
 @section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-$(document).ready(function() {
+document.addEventListener('DOMContentLoaded', function() {
     const ctx = document.getElementById('revenueChart').getContext('2d');
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8'],
+            labels: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'],
             datasets: [{
                 label: 'Doanh Thu (triệu ₫)',
                 data: [
@@ -53,7 +53,11 @@ $(document).ready(function() {
                     {{ isset($revenueByMonth[5]) ? round($revenueByMonth[5] / 1000000, 2) : 0 }},
                     {{ isset($revenueByMonth[6]) ? round($revenueByMonth[6] / 1000000, 2) : 0 }},
                     {{ isset($revenueByMonth[7]) ? round($revenueByMonth[7] / 1000000, 2) : 0 }},
-                    {{ isset($revenueByMonth[8]) ? round($revenueByMonth[8] / 1000000, 2) : 0 }}
+                    {{ isset($revenueByMonth[8]) ? round($revenueByMonth[8] / 1000000, 2) : 0 }},
+                    {{ isset($revenueByMonth[9]) ? round($revenueByMonth[9] / 1000000, 2) : 0 }},
+                    {{ isset($revenueByMonth[10]) ? round($revenueByMonth[10] / 1000000, 2) : 0 }},
+                    {{ isset($revenueByMonth[11]) ? round($revenueByMonth[11] / 1000000, 2) : 0 }},
+                    {{ isset($revenueByMonth[12]) ? round($revenueByMonth[12] / 1000000, 2) : 0 }}
                 ],
                 borderColor: '#4CAF50',
                 backgroundColor: 'rgba(76, 175, 80, 0.2)',
@@ -69,8 +73,16 @@ $(document).ready(function() {
                         display: true,
                         text: 'Doanh Thu (triệu ₫)'
                     }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Tháng'
+                    }
                 }
-            }
+            },
+            responsive: true,
+            maintainAspectRatio: false
         }
     });
 });

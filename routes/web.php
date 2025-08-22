@@ -60,8 +60,6 @@ Route::middleware('auth')->group(function () {
 
         // Cập nhật số lượng nhanh
         Route::get('/inventory/forecast', [AdminController::class, 'forecastInventory'])->name('inventory.forecast');
-        Route::get('/orders/export', [AdminController::class, 'exportOrders'])->name('orders.export');
-        Route::get('/orders/stats', [AdminController::class, 'orderStats'])->name('orders.stats');
         Route::post('/tickets/{id}/assign', [AdminController::class, 'assignTicket'])->name('tickets.assign');
         Route::get('/tickets', [AdminController::class, 'tickets'])->name('tickets');
 
@@ -112,6 +110,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/pending-products', [ProductController::class, 'pendingProducts'])->name('pending.products');
 
         // ==== QUẢN LÝ ĐỔN HÀNG (ORDERS) ====
+        Route::get('/orders/export', [AdminController::class, 'exportOrders'])->name('orders.export');
+        Route::get('/orders/stats', [AdminController::class, 'orderStats'])->name('orders.stats');
         Route::get('/orders', [AdminController::class, 'orders'])->name('orders');
         Route::get('/orders/{order}', [AdminController::class, 'showOrder'])->name('orders.show');
         Route::patch('/orders/{order}/status', [AdminController::class, 'updateOrderStatus'])->name('orders.update-status');
@@ -122,9 +122,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/orders/{id}/confirm-payment', [AdminController::class, 'confirmPayment'])->name('orders.confirm-payment');
 
         Route::delete('/orders/{id}', [AdminController::class, 'destroy'])->name('orders.destroy');
-        Route::get('/orders/{order}', [AdminController::class, 'show'])->name('orders.show');
-        Route::get('/orders/export', [AdminController::class, 'export'])->name('orders.export');
-        Route::get('/orders/stats', [AdminController::class, 'stats'])->name('orders.stats');
+        // Route::get('/orders/{order}', [AdminController::class, 'show'])->name('orders.show');
+        // Route::get('/orders/export', [AdminController::class, 'export'])->name('orders.export');
+        // Route::get('/orders/stats', [AdminController::class, 'stats'])->name('orders.stats');
 
         Route::post('/promotions/{promotion}/apply-product', [AdminController::class, 'applyProduct'])->name('promotions.apply-product');
 
@@ -139,6 +139,7 @@ Route::middleware('auth')->group(function () {
 
 
 // Employee routes
+// Employee routes
 Route::middleware(['auth', 'role:employee'])->prefix('employee')->group(function () {
     Route::get('/dashboard', [EmployeeController::class, 'dashboard'])->name('employee.dashboard');
     Route::get('/inventory', [EmployeeController::class, 'inventory'])->name('employee.inventory');
@@ -151,32 +152,19 @@ Route::middleware(['auth', 'role:employee'])->prefix('employee')->group(function
     Route::patch('/orders/{order}/status', [EmployeeController::class, 'updateOrderStatus'])->name('employee.orders.update-status');
     Route::get('/orders/{order}', [EmployeeController::class, 'showOrder'])->name('employee.orders.show');
     Route::post('/orders/{order}/cancel', [EmployeeController::class, 'cancelOrder'])->name('employee.orders.cancel');
-
-    Route::get('/promotions', [EmployeeController::class, 'promotions'])->name('employee.promotions');
-    Route::get('/promotions/create', [EmployeeController::class, 'createPromotion'])->name('employee.promotions.create');
-    Route::post('/promotions', [EmployeeController::class, 'storePromotion'])->name('employee.promotions.store');
-    Route::get('/promotions/{promotion}/edit', [EmployeeController::class, 'editPromotion'])->name('employee.promotions.edit');
-    Route::put('/promotions/{promotion}', [EmployeeController::class, 'updatePromotion'])->name('employee.promotions.update');
-    Route::delete('/promotions/{promotion}', [EmployeeController::class, 'destroyPromotion'])->name('employee.promotions.destroy');
-
-
     Route::get('/requests', [EmployeeController::class, 'requests'])->name('employee.requests');
     Route::post('/requests/{request}/process', [EmployeeController::class, 'processRequest'])->name('employee.requests.process');
     Route::get('/support', [EmployeeController::class, 'support'])->name('employee.support');
     Route::get('/support/{ticket}/reply', [EmployeeController::class, 'replySupportTicket'])->name('employee.support.reply');
     Route::post('/support/{ticket}/reply', [EmployeeController::class, 'storeSupportReply'])->name('employee.support.store-reply');
-    Route::get('/reports', [EmployeeController::class, 'reports'])->name('employee.reports');
-
-
-    Route::get('/pending-products', [ProductController::class, 'pendingProducts'])->name('pending.products');
-    Route::patch('/products/{id}/approve', [ProductController::class, 'approve'])->name('products.approve');
-    Route::get('/approved-products', [ProductController::class, 'approvedProducts'])->name('approved.products');
-
-    // Route mới cho quản lý đánh giá của nhân viên
     Route::get('/reviews', [EmployeeController::class, 'reviews'])->name('employee.reviews');
     Route::get('/reviews/{review}', [EmployeeController::class, 'showReview'])->name('employee.reviews.show');
     Route::delete('/reviews/{review}', [EmployeeController::class, 'destroyReview'])->name('employee.reviews.delete');
-
+    Route::get('/requests/{request}', [EmployeeController::class, 'showRequest'])->name('employee.requests.show');
+    Route::post('/requests/{request}/feedback', [EmployeeController::class, 'sendFeedback'])->name('employee.requests.feedback');
+    // ... (các route khác)
+    Route::get('/stock-request', [EmployeeController::class, 'showStockRequestForm'])->name('employee.stock.request');
+    Route::post('/stock-request', [EmployeeController::class, 'sendStockRequest'])->name('employee.stock.request.send');
 });
 
 // Routes cho khách hàng (customer)
@@ -246,5 +234,12 @@ Route::middleware(['auth', 'role:supplier'])->group(function () {
     Route::get('/supplier/orders/{id}', [SupplierController::class, 'showOrder'])->name('supplier.orders.show');
 
     Route::get('/supplier/requests', [SupplierController::class, 'requests'])->name('supplier.requests');
-    Route::post('/supplier/requests/{id}/process', [SupplierController::class, 'processRequest'])->name('supplier.requests.process');
+    Route::post('/requests/{id}/process', [SupplierController::class, 'processRequest'])->name('supplier.requests.process');
+    Route::get('supplier/requests/{id}', [SupplierController::class, 'showRequest'])->name('supplier.requests.show');
+
+
+    Route::get('/supplier/products/report', [SupplierController::class, 'productReport'])->name('supplier.products.report');
+
+
+    Route::post('/supplier/orders/{id}/status', [SupplierController::class, 'updateOrderStatus'])->name('supplier.orders.updateStatus');
 });

@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Storage; // vì bạn có dùng Storage::exists()
 use App\Models\Setting;
 use App\Models\SupportTicket;
 use App\Models\Promotion;
+use Illuminate\Support\Facades\Response; // Thêm dòng này
 use Illuminate\Support\Facades\Artisan;
 use Spatie\Activitylog\Models\Activity;
 use Illuminate\Support\Facades\Log;
@@ -33,14 +34,14 @@ class AdminController extends Controller
     }
 
     // ==================== DASHBOARD ====================
-   public function dashboard()
+    public function dashboard()
     {
         $totalProducts = Product::count();
         $totalOrders = Order::count();
         $pendingOrders = Order::where('status', 'pending')->count();
         $openTickets = SupportTicket::where('status', 'open')->count();
         $totalUsers = User::count();
-        $totalRevenue = Order::where('status', 'completed')->sum('total_amount');
+        $totalRevenue = Order::where('status', 'delivered')->sum('total_amount'); // Đã sửa từ 'completed' thành 'delivered'
         $activePromotions = Promotion::where('is_active', true)
                                     ->whereDate('start_date', '<=', now())
                                     ->whereDate('end_date', '>=', now())
@@ -51,11 +52,11 @@ class AdminController extends Controller
         $orderStats = [
             'pending' => Order::where('status', 'pending')->count(),
             'processing' => Order::where('status', 'processing')->count(),
-            'completed' => Order::where('status', 'completed')->count(),
+            'delivered' => Order::where('status', 'delivered')->count(), // Đã sửa từ 'completed' thành 'delivered'
         ];
 
         $monthlyRevenue = Order::selectRaw('MONTH(created_at) as month, SUM(total_amount) as revenue')
-            ->where('status', 'completed')
+            ->where('status', 'delivered') // Đã sửa từ 'completed' thành 'delivered'
             ->groupBy('month')
             ->orderBy('month')
             ->pluck('revenue', 'month');
@@ -395,7 +396,7 @@ class AdminController extends Controller
             });
         return view('admin.reports.index', compact('revenue', 'topProducts', 'topCustomers'));
     }
-        public function revenueReport()
+    public function revenueReport()
     {
         $revenueByMonth = Order::where('payment_status', 'paid')
             ->selectRaw('MONTH(created_at) as month, SUM(total_amount) as total')
@@ -404,6 +405,10 @@ class AdminController extends Controller
             ->get()
             ->pluck('total', 'month')
             ->all();
+
+        // Đảm bảo mảng đầy đủ 12 tháng, giá trị mặc định là 0 nếu không có dữ liệu
+        $revenueByMonth = array_replace(array_fill(1, 12, 0), $revenueByMonth);
+
         return view('admin.reports.revenue', compact('revenueByMonth'));
     }
 
@@ -657,13 +662,41 @@ class AdminController extends Controller
 
     public function orderStats()
     {
-        $totalRevenue = Order::where('status', 'delivered')->sum('total_amount'); // Chỉ tính doanh thu khi giao thành công
+        $totalRevenue = Order::where('status', 'delivered')->sum('total_amount'); // Doanh thu từ đơn giao thành công
         $monthlyRevenue = Order::selectRaw('MONTH(created_at) as month, SUM(total_amount) as revenue')
             ->where('status', 'delivered')
             ->groupBy('month')
             ->get();
 
         return view('admin.orders.stats', compact('totalRevenue', 'monthlyRevenue'));
+    }
+    public function export()
+    {
+        $orders = Order::all(); // Hoặc thêm điều kiện như where('payment_status', 'paid')
+
+        $exportData = $orders->map(function ($order) {
+            return [
+                'ID' => $order->id,
+                'Customer' => $order->customer ? $order->customer->name : 'Khách vãng lai',
+                'Total Amount' => number_format($order->total_amount, 0, ',', '.') . ' ₫',
+                'Payment Status' => $order->payment_status,
+                'Created At' => $order->created_at->format('d/m/Y H:i'),
+            ];
+        });
+
+        $headers = ['ID', 'Customer', 'Total Amount', 'Payment Status', 'Created At'];
+        $exportData = $exportData->prepend($headers);
+
+        $csvContent = $exportData->map(function ($row) {
+            return implode(',', array_map(function ($value) {
+                return str_replace(',', '', $value); // Loại bỏ dấu phẩy trong số để tránh lỗi CSV
+            }, $row));
+        })->implode("\n");
+
+        return Response::make($csvContent, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="orders_export_' . date('Ymd_His') . '.csv"',
+        ]);
     }
 
 

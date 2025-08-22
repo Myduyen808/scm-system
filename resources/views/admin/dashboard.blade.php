@@ -194,7 +194,7 @@
         @endcan
     </div>
 
-    <!-- Quản lý đánh giá của khách hàng -->
+    {{-- <!-- Quản lý đánh giá của khách hàng -->
     @can('manage reviews')
     <div class="row mt-4">
         <div class="col-md-12">
@@ -245,7 +245,7 @@
             </div>
         </div>
     </div>
-    @endcan
+    @endcan --}}
 
     <!-- Statistics Cards -->
     <div class="row mt-4">
@@ -442,7 +442,9 @@
             <div class="card">
                 <div class="card-body">
                     <h5>Thống kê trạng thái đơn hàng</h5>
-                    <canvas id="orderStatsChart"></canvas>
+                    <div style="height: 250px;">
+                        <canvas id="orderStatsChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -454,7 +456,9 @@
             <div class="card">
                 <div class="card-body">
                     <h5>Doanh thu theo tháng</h5>
-                    <canvas id="revenueChart" width="400" height="200"></canvas>
+                    <div style="height: 250px;">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -462,17 +466,19 @@
 </div>
 @endsection
 
+
 @section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    const ctx = document.getElementById('orderStatsChart').getContext('2d');
-    new Chart(ctx, {
+    // =================== Biểu đồ thống kê đơn hàng ===================
+    const ctxOrderStats = document.getElementById('orderStatsChart').getContext('2d');
+    new Chart(ctxOrderStats, {
         type: 'bar',
         data: {
             labels: {!! json_encode(['Chờ xử lý', 'Đang xử lý', 'Hoàn thành']) !!},
             datasets: [{
                 label: 'Số lượng đơn hàng',
-                data: {!! json_encode([$orderStats['pending'], $orderStats['processing'], $orderStats['completed']]) !!},
+                data: {!! json_encode([$orderStats['pending'], $orderStats['processing'], $orderStats['delivered']]) !!},
                 backgroundColor: ['#007bff', '#ffc107', '#28a745'],
                 borderColor: ['#0056b3', '#ffca28', '#218838'],
                 borderWidth: 1
@@ -480,6 +486,7 @@
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
                     display: true,
@@ -490,11 +497,58 @@
                 y: {
                     beginAtZero: true,
                     ticks: {
-                        precision: 0 // loại bỏ số thập phân
+                        precision: 0
                     }
                 }
             }
         }
     });
+
+    // =================== Biểu đồ doanh thu theo tháng ===================
+    const ctxRevenue = document.getElementById('revenueChart').getContext('2d');
+    if (ctxRevenue) {
+        new Chart(ctxRevenue, {
+            type: 'line',
+            data: {
+                labels: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'],
+                datasets: [{
+                    label: 'Doanh Thu (VNĐ)',
+                    data: {!! json_encode($revenueData) !!},
+                    borderColor: '#4CAF50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3 // bo tròn đường line cho đẹp
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Doanh Thu (VNĐ)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('vi-VN') + ' VNĐ';
+                            }
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Tháng'
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        console.log('Không tìm thấy canvas #revenueChart');
+    }
 </script>
 @endsection
+

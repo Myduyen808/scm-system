@@ -12,4 +12,8 @@ class Request extends Model
     {
         return $this->belongsTo(User::class, 'supplier_id');
     }
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
 }

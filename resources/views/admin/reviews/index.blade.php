@@ -38,7 +38,7 @@
                                     <td>{{ $review->user ? $review->user->name : 'Khách vãng lai' }}</td>
                                     <td>{{ $review->rating }} <i class="fas fa-star text-warning"></i></td>
                                     <td>{{ \Illuminate\Support\Str::limit($review->comment, 50, '...') }}</td>
-                                    <td>{{ $review->created_at->format('d/m/Y H:i') }}</td>
+                                    <td>{{ $review->created_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</td>
                                     <td>
                                         <a href="{{ route('admin.reviews.show', $review->id) }}" class="btn btn-sm btn-info">
                                             <i class="fas fa-eye"></i> Xem

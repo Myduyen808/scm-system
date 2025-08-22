@@ -22,10 +22,7 @@
                 <td>{{ $request->id }}</td>
                 <td>{{ $request->status ?? 'Chờ xử lý' }}</td>
                 <td>
-                    <form action="{{ route('employee.requests.process', $request) }}" method="POST" class="d-inline">
-                        @csrf
-                        <button type="submit" class="btn btn-primary btn-sm">Xử lý</button>
-                    </form>
+                    <a href="{{ route('employee.requests.show', $request) }}" class="btn btn-info btn-sm">Phản hồi</a>
                 </td>
             </tr>
             @empty

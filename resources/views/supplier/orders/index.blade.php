@@ -5,6 +5,19 @@
 @section('content')
 <div class="container">
     <h1 class="mb-4"><i class="fas fa-shopping-cart"></i> Theo Dõi Đơn Hàng</h1>
+    <!-- Flash Messages -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
     <div class="card fade-in">
         <div class="card-body">
             <form method="GET" class="mb-4 d-flex">
@@ -33,8 +46,8 @@
                     @forelse($orders as $order)
                     <tr>
                         <td>{{ $order->order_number }}</td>
-                        <td>{{ $order->customer->name ?? 'Không xác định' }}</td> <!-- Sửa thành customer -->
-                        <td>₫{{ number_format($order->total_amount, 0, ',', '.') }}</td>
+                        <td>{{ $order->customer->name ?? 'Không xác định' }}</td>
+                        <td>₫{{ number_format($order->total_amount ?? 0, 0, ',', '.') }}</td>
                         <td>{{ $order->status }}</td>
                         <td>{{ $order->created_at->format('d/m/Y H:i') }}</td>
                         <td>

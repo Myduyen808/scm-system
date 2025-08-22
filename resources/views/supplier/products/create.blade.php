@@ -5,6 +5,19 @@
 @section('content')
 <div class="container">
     <h1 class="mb-4"><i class="fas fa-plus"></i> Thêm Sản Phẩm Mới</h1>
+        <!-- Flash Messages -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
     <div class="card fade-in">
         <div class="card-body">
             <form action="{{ route('supplier.products.store') }}" method="POST" enctype="multipart/form-data">

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Order;
 use App\Models\Promotion;
+use App\Models\RequestModel; // Thêm dòng này
 use App\Models\Review; // Thêm dòng này
 use App\Models\SupportTicket;
 use Illuminate\Support\Facades\Auth;
@@ -18,7 +19,7 @@ class EmployeeController extends Controller
         $this->middleware('role:employee');
     }
 
-public function dashboard()
+    public function dashboard()
     {
         $totalProducts = Product::count();
         $pendingOrders = Order::where('status', 'pending')->count();
@@ -30,19 +31,30 @@ public function dashboard()
         $orderStats = [
             'pending' => Order::where('status', 'pending')->count(),
             'processing' => Order::where('status', 'processing')->count(),
-            'completed' => Order::where('status', 'completed')->count(),
+            'delivered' => Order::where('status', 'delivered')->count(),
         ];
-        // Lấy danh sách sản phẩm đã phê duyệt gần đây (giới hạn 5)
         $approvedProducts = Product::where('is_approved', true)
             ->with('inventory')
             ->orderBy('updated_at', 'desc')
             ->limit(5)
             ->get();
-        // Lấy 5 đánh giá mới nhất
         $reviews = Review::with(['product', 'user'])
             ->latest()
             ->limit(5)
             ->get();
+
+        // Doanh thu theo tháng (12 tháng)
+        $monthlyRevenues = Order::where('status', 'delivered')
+            ->selectRaw('MONTH(created_at) as month, SUM(total_amount) as revenue')
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get()
+            ->pluck('revenue', 'month')
+            ->all();
+        $labels = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+        $revenueData = array_map(function($month) use ($monthlyRevenues) {
+            return $monthlyRevenues[$month] ?? 0;
+        }, range(1, 12));
 
         return view('employee.dashboard', compact(
             'totalProducts',
@@ -51,7 +63,9 @@ public function dashboard()
             'activePromotions',
             'orderStats',
             'approvedProducts',
-            'reviews'
+            'reviews',
+            'labels',
+            'revenueData'
         ));
     }
 
@@ -61,12 +75,12 @@ public function dashboard()
         if (!Auth::user()->can('manage inventory')) {
             abort(403, 'Bạn không có quyền truy cập.');
         }
-        $query = Product::query();
+        $query = Product::where('supplier_id', '!=', null); // Chỉ lấy sản phẩm từ Supplier
         if ($request->search) {
             $query->where('name', 'like', '%' . $request->search . '%')
-                  ->orWhere('sku', 'like', '%' . $request->search . '%');
+                ->orWhere('sku', 'like', '%' . $request->search . '%');
         }
-        $products = $query->paginate(10);
+        $products = $query->with('supplier')->paginate(10);
         return view('employee.inventory.index', compact('products'));
     }
 
@@ -228,21 +242,26 @@ public function dashboard()
     // Phản hồi yêu cầu (xử lý nhập hàng từ Supplier)
     public function requests()
     {
-        if (!Auth::user()->can('support customer')) { // Sử dụng permission hiện có
+        if (!Auth::user()->can('support customer')) {
             abort(403);
         }
-        // Giả sử có model Request hoặc lấy từ bảng liên quan
-        $requests = []; // Thay bằng logic thực tế
+        $requests = RequestModel::where('status', 'pending')
+            ->whereHas('supplier', function ($query) {
+                $query->where('is_active', true);
+            })
+            ->get();
         return view('employee.requests.index', compact('requests'));
     }
 
-    public function processRequest($requestId)
+    public function processRequest(Request $request, $id)
     {
         if (!Auth::user()->can('support customer')) {
             abort(403);
         }
-        // Logic xử lý yêu cầu (ví dụ: cập nhật trạng thái, thông báo Supplier)
-        return redirect()->back()->with('success', 'Xử lý yêu cầu thành công!');
+        $req = RequestModel::findOrFail($id);
+        $validated = $request->validate(['status' => 'required|in:accepted,rejected', 'note' => 'nullable|string|max:255']);
+        $req->update($validated);
+        return redirect()->route('employee.requests')->with('success', 'Xử lý yêu cầu thành công!');
     }
 
     // Hỗ trợ khách hàng
@@ -356,5 +375,84 @@ public function dashboard()
     {
         $review->delete();
         return redirect()->route('employee.reviews')->with('success', 'Đánh giá đã được xóa thành công.');
+    }
+
+    // Trong EmployeeController.php
+    public function showRequest($id)
+    {
+        if (!Auth::user()->can('support customer')) {
+            abort(403);
+        }
+        $request = RequestModel::findOrFail($id);
+        return view('employee.requests.show', compact('request'));
+    }
+
+    public function sendFeedback(Request $request, $id)
+    {
+        if (!Auth::user()->can('support customer')) {
+            abort(403);
+        }
+        $validated = $request->validate([
+            'feedback' => 'required|string|max:1000',
+            'status' => 'required|in:accepted,rejected',
+        ]);
+        $requestModel = RequestModel::findOrFail($id);
+        $requestModel->update([
+            'status' => $validated['status'],
+            'employee_feedback' => $validated['feedback'],
+            'updated_at' => now(),
+        ]);
+        // Gửi thông báo (có thể tích hợp email hoặc thông báo trong hệ thống)
+        return redirect()->route('employee.requests')->with('success', 'Phản hồi đã được gửi thành công!');
+    }
+
+    public function showStockRequestForm()
+    {
+        if (!Auth::user()->can('manage inventory')) {
+            abort(403);
+        }
+        $lowStockProducts = Product::where('supplier_id', '!=', null)
+            ->where('stock_quantity', '<', 10) // Giả định ngưỡng tồn kho thấp
+            ->with('supplier')
+            ->get();
+        return view('employee.dashboard-stock-request', compact('lowStockProducts'));
+    }
+    public function sendStockRequest(Request $request)
+    {
+        if (!Auth::user()->can('manage inventory')) {
+            abort(403);
+        }
+        $validated = $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'quantity' => 'required|integer|min:1',
+            'supplier_id' => 'required|exists:users,id',
+            'note' => 'nullable|string|max:500',
+        ]);
+
+        // Kiểm tra supplier_id của sản phẩm
+        $product = Product::findOrFail($validated['product_id']);
+        if ($product->supplier_id !== $validated['supplier_id']) {
+            return redirect()->back()->with('error', 'Nhà cung cấp không khớp với sản phẩm.');
+        }
+
+        $requestData = [
+            'supplier_id' => $validated['supplier_id'],
+            'product_id' => $validated['product_id'],
+            'quantity' => $validated['quantity'],
+            'description' => 'Yêu cầu nhập hàng: ' . ($validated['note'] ?? ''),
+            'status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+
+        try {
+            $requestModel = RequestModel::create($requestData);
+            \Log::info('Request created successfully:', ['id' => $requestModel->id, 'supplier_id' => $requestModel->supplier_id]);
+        } catch (\Exception $e) {
+            \Log::error('Error creating request: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Có lỗi xảy ra khi gửi yêu cầu.');
+        }
+
+        return redirect()->route('employee.dashboard')->with('success', 'Yêu cầu nhập hàng đã được gửi thành công!');
     }
 }

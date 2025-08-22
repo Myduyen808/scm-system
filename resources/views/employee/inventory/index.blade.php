@@ -11,7 +11,6 @@
             <button type="submit" class="btn btn-primary">Tìm</button>
         </div>
     </form>
-    <a href="{{ route('employee.inventory.create') }}" class="btn btn-primary mb-3">Thêm sản phẩm</a>
     @if (session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
@@ -23,6 +22,7 @@
             <tr>
                 <th>Hình ảnh</th>
                 <th>Tên sản phẩm</th>
+                <th>Nhà cung cấp</th>
                 <th>Số lượng tồn</th>
                 <th>Thao tác</th>
             </tr>
@@ -38,6 +38,7 @@
                     @endif
                 </td>
                 <td>{{ $product->name }}</td>
+                <td>{{ $product->supplier->name ?? 'Chưa rõ' }}</td>
                 <td>
                     <form action="{{ route('employee.inventory.update', $product) }}" method="POST" class="d-inline">
                         @csrf @method('PATCH')
@@ -55,7 +56,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="4" class="text-center">Không có sản phẩm</td>
+                <td colspan="5" class="text-center">Không có sản phẩm từ nhà cung cấp</td>
             </tr>
             @endforelse
         </tbody>
