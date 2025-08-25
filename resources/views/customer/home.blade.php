@@ -105,7 +105,7 @@
             </div>
         </div>
 
-        <div class="col-md-3 mb-4">
+        {{-- <div class="col-md-3 mb-4">
             <div class="card border-primary">
                 <div class="card-body text-center">
                     <i class="fas fa-gift fa-3x text-primary mb-3"></i>
@@ -116,7 +116,7 @@
                     </a>
                 </div>
             </div>
-        </div>
+        </div> --}}
     </div>
 
     <!-- Featured Products Section -->

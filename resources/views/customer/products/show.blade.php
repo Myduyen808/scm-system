@@ -34,26 +34,26 @@
                 </h4>
             </div>
 
-            <div class="mb-4">
-                <p><strong>Tồn kho:</strong> {{ $product->inventory ? $product->inventory->stock : 0 }} sản phẩm</p>
-            </div>
+        <div class="mb-4">
+            <p><strong>Tồn kho:</strong> {{ $product->inventory ? $product->inventory->stock : 0 }} sản phẩm</p>
+        </div>
 
             <!-- Form thêm vào giỏ -->
-            @if($product->inventory && $product->inventory->stock > 0 && $product->is_approved && $product->is_active)
-                <form action="{{ route('customer.cart.add', $product->id) }}" method="POST" class="mb-4">
-                    @csrf
-                    <div class="input-group mb-3" style="max-width: 200px;">
-                        <input type="number" name="quantity" value="1" min="1"
-                               max="{{ $product->inventory->stock }}"
-                               class="form-control" style="padding: 8px;" required>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-cart-plus"></i> Thêm vào giỏ
-                        </button>
-                    </div>
-                </form>
-            @else
-                <p class="text-danger">Sản phẩm hiện không khả dụng để thêm vào giỏ hàng.</p>
-            @endif
+        @if($product->inventory && $product->inventory->stock > 0 && $product->is_approved && $product->is_active)
+            <form action="{{ route('customer.cart.add', $product->id) }}" method="POST" class="mb-4">
+                @csrf
+                <div class="input-group mb-3" style="max-width: 200px;">
+                    <input type="number" name="quantity" value="1" min="1"
+                        max="{{ $product->inventory->stock }}"
+                        class="form-control" style="padding: 8px;" required>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-cart-plus"></i> Thêm vào giỏ
+                    </button>
+                </div>
+            </form>
+        @else
+            <p class="text-danger">Sản phẩm hiện không khả dụng để thêm vào giỏ hàng.</p>
+        @endif
 
             <!-- Nút viết đánh giá -->
             <a href="{{ route('customer.reviews.create', $product->id) }}" class="btn btn-warning">

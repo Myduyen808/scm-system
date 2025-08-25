@@ -277,10 +277,22 @@ class AdminController extends Controller
     {
         $order = Order::findOrFail($id);
         $order->update(['status' => 'cancelled']);
-        // Hoàn tồn kho (tùy chọn)
-        foreach ($order->orderItems as $item) {
-            $item->product->increment('stock_quantity', $item->quantity);
+
+        DB::beginTransaction();
+        try {
+            // Hoàn tồn kho nếu đơn hàng bị hủy
+            foreach ($order->orderItems as $item) {
+                $inventory = $item->product->inventory;
+                if ($inventory) {
+                    $inventory->increment('stock', $item->quantity);
+                }
+            }
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Lỗi hoàn tồn kho khi hủy đơn hàng: ' . $e->getMessage());
         }
+
         return redirect()->route('admin.orders')->with('success', 'Đã hủy đơn hàng!');
     }
 

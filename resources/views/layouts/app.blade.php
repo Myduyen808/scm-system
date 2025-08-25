@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -69,9 +70,17 @@
             transform: translateY(20px);
         }
 
-        .fade-in:nth-child(1) { animation-delay: 0.1s; }
-        .fade-in:nth-child(2) { animation-delay: 0.2s; }
-        .fade-in:nth-child(3) { animation-delay: 0.3s; }
+        .fade-in:nth-child(1) {
+            animation-delay: 0.1s;
+        }
+
+        .fade-in:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .fade-in:nth-child(3) {
+            animation-delay: 0.3s;
+        }
 
         @keyframes fadeInUp {
             to {
@@ -100,6 +109,7 @@
     </style>
     @yield('styles')
 </head>
+
 <body>
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm">
@@ -169,7 +179,7 @@
                                     @php
                                         $cartCount = Cart::getContent()->count();
                                     @endphp
-                                    @if($cartCount > 0)
+                                    @if ($cartCount > 0)
                                         <span class="cart-badge" id="cart-count">{{ $cartCount }}</span>
                                     @endif
                                 </a>
@@ -182,7 +192,8 @@
                             </a>
                             <ul class="dropdown-menu">
                                 @role('customer')
-                                    <li><a class="dropdown-item" href="{{ route('customer.orders') }}">Đơn hàng của tôi</a></li>
+                                    <li><a class="dropdown-item" href="{{ route('customer.orders') }}">Đơn hàng của tôi</a>
+                                    </li>
                                 @endrole
 
                                 @role('admin')
@@ -197,7 +208,9 @@
                                     <li><a class="dropdown-item" href="{{ route('supplier.dashboard') }}">Dashboard</a></li>
                                 @endrole
 
-                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
                                 <li>
                                     <form action="{{ route('logout') }}" method="POST" class="d-inline">
                                         @csrf
@@ -220,18 +233,18 @@
     </nav>
 
     <!-- Flash Messages -->
-    @if(session('success'))
-    <div class="alert alert-success alert-dismissible fade show m-3" role="alert">
-        <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
+    @if (session('success'))
+        <div class="alert alert-success alert-dismissible fade show m-3" role="alert">
+            <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
     @endif
 
-    @if(session('error'))
-    <div class="alert alert-danger alert-dismissible fade show m-3" role="alert">
-        <i class="fas fa-exclamation-circle me-2"></i>{{ session('error') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
+    @if (session('error'))
+        <div class="alert alert-danger alert-dismissible fade show m-3" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>{{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
     @endif
 
     <!-- Main Content -->
@@ -248,7 +261,8 @@
                     <p class="mb-0">Hệ thống quản lý chuỗi cung ứng hiện đại và hiệu quả.</p>
                 </div>
                 <div class="col-md-6 text-md-end">
-                    <p class="mb-0">&copy; 2025 SCM System. Phát triển bởi duyenb2203435@student.ctu.edu.vn {{ app()->version() }}</p>
+                    <p class="mb-0">&copy; 2025 SCM System. Phát triển bởi duyenb2203435@student.ctu.edu.vn
+                        {{ app()->version() }}</p>
                 </div>
             </div>
         </div>
@@ -287,7 +301,10 @@
             $.ajax({
                 url: '/customer/cart/add/' + productId,
                 type: 'POST',
-                data: { quantity: 1, _token: $('meta[name="csrf-token"]').attr('content') },
+                data: {
+                    quantity: 1,
+                    _token: $('meta[name="csrf-token"]').attr('content')
+                },
                 success: function(response) {
                     $(this).html('<i class="fas fa-cart-plus"></i> Thêm vào giỏ');
                     if (response.success) {
@@ -309,4 +326,5 @@
 
     @yield('scripts')
 </body>
+
 </html>

@@ -19,6 +19,7 @@ use App\Models\Cart;
 use Stripe\PaymentIntent;
 use App\Services\PaypalDirectService;
 use App\Services\MoMoDirectService; // Thay đổi này
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 
 
@@ -361,7 +362,15 @@ class CustomerController extends Controller
                         'quantity'   => $itemData['quantity'],
                         'price'      => $item->product->current_price,
                     ]);
-                    $item->product->inventory->decrement('stock', $itemData['quantity']);
+
+                    // Kiểm tra và giảm tồn kho
+                    if ($item->product->inventory) {
+                        $newStock = $item->product->inventory->stock - $itemData['quantity'];
+                        if ($newStock < 0) {
+                            throw new \Exception('Số lượng tồn kho không đủ cho sản phẩm ' . $item->product->name);
+                        }
+                        $item->product->inventory->update(['stock' => $newStock]);
+                    }
                 }
 
                 Payment::create([
@@ -381,7 +390,7 @@ class CustomerController extends Controller
             } catch (\Exception $e) {
                 DB::rollBack();
                 \Log::error('Lỗi tạo đơn hàng sau thanh toán: ' . $e->getMessage());
-                return back()->with('error', 'Có lỗi khi tạo đơn hàng.');
+                return back()->with('error', 'Có lỗi khi tạo đơn hàng: ' . $e->getMessage());
             }
         }
 
@@ -408,9 +417,9 @@ class CustomerController extends Controller
 
             DB::beginTransaction();
 
-            $order = Order::findOrFail($orderId);
+            $order = Order::with('orderItems')->findOrFail($orderId);
 
-            // **QUAN TRỌNG: Kiểm tra và tạo OrderItems nếu chưa có**
+            // Kiểm tra và tạo OrderItems nếu chưa có
             if ($order->orderItems->count() == 0) {
                 $cartItems = Cart::where('user_id', Auth::id())->with('product')->get();
 
@@ -422,6 +431,18 @@ class CustomerController extends Controller
                         'price' => $cartItem->product->current_price,
                         'total' => $cartItem->quantity * $cartItem->product->current_price
                     ]);
+                }
+            }
+
+            // Giảm tồn kho
+            foreach ($order->orderItems as $orderItem) {
+                $product = $orderItem->product;
+                if ($product && $product->inventory) {
+                    $newStock = $product->inventory->stock - $orderItem->quantity;
+                    if ($newStock < 0) {
+                        throw new \Exception('Số lượng tồn kho không đủ cho sản phẩm ' . $product->name);
+                    }
+                    $product->inventory->update(['stock' => $newStock]);
                 }
             }
 
@@ -444,7 +465,6 @@ class CustomerController extends Controller
 
             return redirect()->route('customer.orders.show', $order->id)
                 ->with('success', 'Thanh toán PayPal thành công!');
-
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Lỗi PayPal success: ' . $e->getMessage());
@@ -769,7 +789,7 @@ class CustomerController extends Controller
 
 
 
-public function momoCreate(Request $request, MoMoDirectService $momo) // Thay MockMoMoService bằng MoMoDirectService
+public function momoCreate(Request $request, MoMoDirectService $momo)
     {
         try {
             $cartItems = Cart::where('user_id', Auth::id())->with('product')->get();
@@ -788,10 +808,12 @@ public function momoCreate(Request $request, MoMoDirectService $momo) // Thay Mo
             DB::beginTransaction();
 
             $order = Order::create([
-                'user_id' => Auth::id(),
-                'total_amount' => $total,
-                'status' => 'pending',
-                'payment_status' => 'pending',
+                'order_number'     => strtoupper(uniqid('ORD')),
+                'customer_id'      => Auth::id(),
+                'total_amount'     => $total,
+                'status'           => 'pending',
+                'payment_status'   => 'pending',
+                'payment_method'   => 'momo',
                 'shipping_address' => $address,
             ]);
 
@@ -805,11 +827,25 @@ public function momoCreate(Request $request, MoMoDirectService $momo) // Thay Mo
                 ]);
             }
 
-            $momoOrder = $momo->createOrder(
-                $total,
-                route('customer.momo.success', $order->id),
-                route('customer.momo.notify', $order->id)
-            );
+            // Kiểm tra môi trường và sử dụng mock nếu chưa có thông tin xác thực
+            $isDevelopment = app()->environment('local');
+            $momoOrder = [];
+            if ($isDevelopment && (!env('MOMO_PARTNER_CODE') || !env('MOMO_ACCESS_KEY') || !env('MOMO_SECRET_KEY'))) {
+                // Chuyển hướng đến trang nhập thông tin mock
+                $mockUrl = route('customer.momo.input', $order->id);
+                $momoOrder = [
+                    'payUrl' => $mockUrl,
+                    'resultCode' => 0,
+                    'message' => 'Mock payment initiated',
+                ];
+                Log::info('Using MoMo mock payment input in development mode.');
+            } else {
+                $momoOrder = $momo->createOrder(
+                    $total,
+                    route('customer.momo.confirm', $order->id),
+                    route('customer.momo.notify', $order->id)
+                );
+            }
 
             DB::commit();
 
@@ -817,7 +853,7 @@ public function momoCreate(Request $request, MoMoDirectService $momo) // Thay Mo
                 return redirect()->away($momoOrder['payUrl']);
             }
 
-            return back()->with('error', 'Không tìm thấy URL thanh toán MoMo.');
+            return back()->with('error', 'Không tìm thấy URL thanh toán MoMo. ' . ($momoOrder['message'] ?? ''));
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Lỗi MoMo create: ' . $e->getMessage());
@@ -826,19 +862,44 @@ public function momoCreate(Request $request, MoMoDirectService $momo) // Thay Mo
         }
     }
 
-    public function momoSuccess(Request $request, $orderId, MoMoDirectService $momo) // Thay MockMoMoService bằng MoMoDirectService
+public function momoInput($orderId)
     {
-        $transId = $request->query('transId');
+        $order = Order::with('orderItems')->findOrFail($orderId);
+        return view('customer.momo.input', compact('order'));
+    }
+
+    public function momoConfirm(Request $request, $orderId, MoMoDirectService $momo)
+    {
+        $transId = $request->input('transId');
+        $phone = $request->input('phone');
+        $otp = $request->input('otp');
+
+        // Kiểm tra session để lấy transId nếu không có trong request
         if (!$transId) {
-            return redirect()->route('customer.checkout')
-                ->with('error', 'Thiếu mã giao dịch MoMo.');
+            $transId = Session::get('momo_trans_id_' . $orderId, 'mock_' . time());
+            Session::put('momo_trans_id_' . $orderId, $transId);
+        }
+
+        if (!$phone || !$otp) {
+            return redirect()->route('customer.momo.input', $orderId)
+                ->with('error', 'Vui lòng nhập số điện thoại và mã OTP.');
         }
 
         try {
-            $verified = $momo->verifyPayment($orderId);
+            $isDevelopment = app()->environment('local');
+            $verified = false;
+
+            if ($isDevelopment && strpos($transId, 'mock_') === 0) {
+                // Mock verification with phone and OTP check
+                $verified = ($otp === '123456'); // Mô phỏng OTP hợp lệ
+                Log::info('MoMo mock verification passed for transId: ' . $transId . ', phone: ' . $phone);
+            } else {
+                $verified = $momo->verifyPayment($orderId);
+            }
+
             if (!$verified) {
-                return redirect()->route('customer.checkout')
-                    ->with('error', 'Xác minh thanh toán MoMo thất bại.');
+                return redirect()->route('customer.momo.input', $orderId)
+                    ->with('error', 'Xác minh thanh toán MoMo thất bại. Vui lòng kiểm tra lại OTP.');
             }
 
             DB::beginTransaction();
@@ -847,6 +908,19 @@ public function momoCreate(Request $request, MoMoDirectService $momo) // Thay Mo
             $order->status = 'processing';
             $order->payment_status = 'paid';
             $order->save();
+
+            // Giảm và đồng bộ tồn kho
+            foreach ($order->orderItems as $orderItem) {
+                $product = $orderItem->product;
+                if ($product && $product->inventory) {
+                    $newStock = $product->inventory->stock - $orderItem->quantity;
+                    if ($newStock < 0) {
+                        throw new \Exception('Số lượng tồn kho không đủ cho sản phẩm ' . $product->name);
+                    }
+                    $product->inventory->update(['stock' => $newStock]);
+                    $product->update(['stock_quantity' => $newStock]);
+                }
+            }
 
             Payment::create([
                 'order_id' => $order->id,
@@ -865,8 +939,8 @@ public function momoCreate(Request $request, MoMoDirectService $momo) // Thay Mo
                 ->with('success', 'Thanh toán MoMo thành công!');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Lỗi MoMo success: ' . $e->getMessage());
-            return redirect()->route('customer.checkout')
+            Log::error('Lỗi MoMo confirm: ' . $e->getMessage());
+            return redirect()->route('customer.momo.input', $orderId)
                 ->with('error', 'Có lỗi khi xử lý thanh toán MoMo: ' . $e->getMessage());
         }
     }

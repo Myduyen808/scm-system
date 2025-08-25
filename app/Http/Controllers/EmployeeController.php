@@ -337,7 +337,7 @@ class EmployeeController extends Controller
         return back()->with('success', 'Trả lời ticket thành công!');
     }
 
-        public function updateOrderStatus(Request $request, $order)
+    public function updateOrderStatus(Request $request, $order)
     {
         $order = Order::findOrFail($order);
         $request->validate([
@@ -346,18 +346,38 @@ class EmployeeController extends Controller
             'shipping_note' => 'nullable|string',
         ]);
 
-        $order->update([
-            'status' => $request->status,
-            'tracking_number' => $request->tracking_number,
-            'shipping_note' => $request->shipping_note,
-        ]);
+        DB::beginTransaction();
+        try {
+            $order->update([
+                'status' => $request->status,
+                'tracking_number' => $request->tracking_number,
+                'shipping_note' => $request->shipping_note,
+            ]);
 
-        if ($request->status === 'delivered') {
-            $order->delivered_at = now();
-            $order->save();
+            if ($request->status === 'delivered') {
+                $order->delivered_at = now();
+                $order->save();
+
+                // Giảm tồn kho từ bảng inventories
+                foreach ($order->orderItems as $item) {
+                    $inventory = $item->product->inventory;
+                    if ($inventory) {
+                        $newStock = $inventory->stock - $item->quantity;
+                        if ($newStock < 0) {
+                            throw new \Exception('Số lượng tồn kho không đủ cho sản phẩm ' . $item->product->name);
+                        }
+                        $inventory->update(['stock' => $newStock]);
+                    }
+                }
+            }
+
+            DB::commit();
+            return redirect()->route('employee.orders')->with('success', 'Cập nhật trạng thái đơn hàng thành công!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Lỗi cập nhật trạng thái đơn hàng: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Có lỗi khi cập nhật trạng thái: ' . $e->getMessage());
         }
-
-        return redirect()->route('employee.orders')->with('success', 'Cập nhật trạng thái đơn hàng thành công!');
     }
 
     public function reviews()

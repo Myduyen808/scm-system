@@ -58,9 +58,6 @@
             </tbody>
         </table>
         <p><strong>Tổng tiền: {{ number_format($total, 0, ',', '.') }} đ</strong></p>
-        @if ($discountedTotal < $total)
-            <p><strong>Tổng sau giảm giá: {{ number_format($discountedTotal, 0, ',', '.') }} đ</strong></p>
-        @endif
 
         <!-- Nút Thanh toán -->
         <form action="{{ route('customer.checkout.store') }}" method="POST" class="mt-3">

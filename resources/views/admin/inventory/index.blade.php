@@ -11,16 +11,16 @@
                     <i class="fas fa-warehouse text-primary"></i> Quản Lý Kho
                 </h1>
                 <div class="btn-group">
-                <a href="{{ route('admin.inventory.forecast') }}" class="btn btn-info">
-                    <i class="fas fa-chart-line"></i> Dự báo tồn kho
-                </a>
-                <a href="{{ route('admin.inventory.create') }}" class="btn btn-primary">
-                    <i class="fas fa-plus"></i> Thêm Sản Phẩm
-                </a>
+                    <a href="{{ route('admin.inventory.forecast') }}" class="btn btn-info">
+                        <i class="fas fa-chart-line"></i> Dự báo tồn kho
+                    </a>
+                    <a href="{{ route('admin.inventory.create') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Thêm Sản Phẩm
+                    </a>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
     <!-- Filters -->
     <div class="card mb-4">
@@ -120,10 +120,10 @@
                                     <input type="number"
                                            class="form-control form-control-sm stock-input"
                                            style="width: 80px;"
-                                           value="{{ $product->stock_quantity }}"
+                                           value="{{ $product->inventory ? $product->inventory->stock : $product->stock_quantity }}"
                                            data-product-id="{{ $product->id }}"
                                            min="0">
-                                    @if($product->stock_quantity < 10)
+                                    @if(($product->inventory ? $product->inventory->stock : $product->stock_quantity) < 10)
                                         <span class="badge bg-warning ms-2">
                                             <i class="fas fa-exclamation-triangle"></i> Thấp
                                         </span>
@@ -205,7 +205,6 @@
         </div>
     </div>
 </div>
-
 @endsection
 
 @section('scripts')
@@ -225,10 +224,7 @@ $(document).ready(function() {
                 stock_quantity: newStock
             },
             success: function(response) {
-                // Show success message
                 showToast('success', response.message);
-
-                // Update badge if low stock
                 const badge = input.siblings('.badge');
                 if (newStock < 10) {
                     if (!badge.length) {

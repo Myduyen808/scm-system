@@ -42,7 +42,7 @@
                 <td>
                     <form action="{{ route('employee.inventory.update', $product) }}" method="POST" class="d-inline">
                         @csrf @method('PATCH')
-                        <input type="number" name="stock_quantity" value="{{ $product->stock_quantity }}" class="form-control d-inline w-50" required>
+                        <input type="number" name="stock_quantity" value="{{ $product->inventory ? $product->inventory->stock : $product->stock_quantity }}" class="form-control d-inline w-50" required>
                         <button type="submit" class="btn btn-sm btn-success">Cập nhật</button>
                     </form>
                 </td>

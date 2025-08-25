@@ -160,6 +160,7 @@ Route::middleware(['auth', 'role:employee'])->prefix('employee')->group(function
     Route::get('/reviews', [EmployeeController::class, 'reviews'])->name('employee.reviews');
     Route::get('/reviews/{review}', [EmployeeController::class, 'showReview'])->name('employee.reviews.show');
     Route::delete('/reviews/{review}', [EmployeeController::class, 'destroyReview'])->name('employee.reviews.delete');
+
     Route::get('/requests/{request}', [EmployeeController::class, 'showRequest'])->name('employee.requests.show');
     Route::post('/requests/{request}/feedback', [EmployeeController::class, 'sendFeedback'])->name('employee.requests.feedback');
     // ... (các route khác)
@@ -243,3 +244,29 @@ Route::middleware(['auth', 'role:supplier'])->group(function () {
 
     Route::post('/supplier/orders/{id}/status', [SupplierController::class, 'updateOrderStatus'])->name('supplier.orders.updateStatus');
 });
+
+
+
+//Momo
+use Illuminate\Http\Request;
+
+Route::post('/mock/momo/payment', function (Request $request) {
+    $response = [
+        'requestId' => 'req_' . uniqid(),
+        'referenceId' => 'ref_' . uniqid(),
+        'responseCode' => 0, // 0 = Thành công
+        'responseMessage' => 'Thanh toán thành công',
+        'payUrl' => url('/payment/success?orderId='.$request->orderId),
+    ];
+    return response()->json($response);
+});
+use App\Http\Controllers\PaymentController;
+
+Route::get('/payment/initiate', [PaymentController::class, 'initiatePayment']);
+Route::get('/payment/return', [PaymentController::class, 'returnPayment']);
+Route::post('/customer/momo/confirm/{orderId}', [CustomerController::class, 'momoConfirm'])
+    ->name('customer.momo.confirm');
+
+
+Route::get('/customer/momo/input/{orderId}', [CustomerController::class, 'momoInput'])
+    ->name('customer.momo.input');

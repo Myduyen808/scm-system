@@ -293,8 +293,34 @@ class SupplierController extends Controller
             abort(403);
         }
         $validated = $request->validate(['status' => 'required|in:processing,completed,shipped,delivered']);
-        $order->update($validated);
-        return redirect()->route('supplier.orders')->with('success', 'Cập nhật trạng thái đơn hàng thành công!');
+
+        DB::beginTransaction();
+        try {
+            $order->update($validated);
+
+            if ($request->status === 'delivered') {
+                // Giảm tồn kho từ bảng inventories
+                foreach ($order->orderItems as $item) {
+                    if ($item->product->supplier_id === Auth::id()) {
+                        $inventory = $item->product->inventory;
+                        if ($inventory) {
+                            $newStock = $inventory->stock - $item->quantity;
+                            if ($newStock < 0) {
+                                throw new \Exception('Số lượng tồn kho không đủ cho sản phẩm ' . $item->product->name);
+                            }
+                            $inventory->update(['stock' => $newStock]);
+                        }
+                    }
+                }
+            }
+
+            DB::commit();
+            return redirect()->route('supplier.orders')->with('success', 'Cập nhật trạng thái đơn hàng thành công!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Lỗi cập nhật trạng thái đơn hàng: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Có lỗi khi cập nhật trạng thái: ' . $e->getMessage());
+        }
     }
 
     // Thông báo khi admin hoặc nhân viên phê duyệt sản phẩm

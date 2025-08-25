@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "263e9dadad279ccc7b97b4b0fde86228",
+    "content-hash": "24e52e4167a2e2133145859f09ec3b3f",
     "packages": [
         {
             "name": "apimatic/core",
