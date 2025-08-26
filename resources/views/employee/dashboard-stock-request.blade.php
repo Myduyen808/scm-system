@@ -53,3 +53,21 @@
     </form>
 </div>
 @endsection
+<script>
+$(document).ready(function() {
+    $('#product_id').on('change', function() {
+        const supplierId = $(this).find(':selected').data('supplier-id');
+        $('#supplier_id').val(supplierId);
+        $('#supplier_id').trigger('change'); // Cập nhật select
+    }).trigger('change'); // Trigger khi tải trang
+
+    // Vô hiệu hóa chọn nhà cung cấp khác nếu không khớp
+    $('#supplier_id').on('change', function() {
+        const selectedProductSupplierId = $('#product_id').find(':selected').data('supplier-id');
+        if (selectedProductSupplierId && $(this).val() != selectedProductSupplierId) {
+            alert('Nhà cung cấp không khớp với sản phẩm. Vui lòng chọn nhà cung cấp đúng.');
+            $(this).val(selectedProductSupplierId); // Reset về supplier_id của sản phẩm
+        }
+    });
+});
+</script>

@@ -5,7 +5,7 @@
 @section('content')
 <div class="container">
     <h1><i class="fas fa-headset"></i> Hỗ Trợ Khách Hàng</h1>
-    @if (session('success'))
+    @if(session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
     <table class="table table-striped">
@@ -22,7 +22,11 @@
                 <td>{{ $ticket->subject }}</td>
                 <td>{{ $ticket->status }}</td>
                 <td>
-                    <a href="{{ route('employee.support.reply', $ticket) }}" class="btn btn-info btn-sm">Trả lời</a>
+                <form action="{{ route('employee.replyTicket', $ticket->id) }}" method="POST">
+                    @csrf
+                    @method('PATCH')
+                    <button type="submit" class="btn btn-info btn-sm">Trả lời</button>
+                </form>
                 </td>
             </tr>
             @empty
@@ -32,6 +36,6 @@
             @endforelse
         </tbody>
     </table>
-    {{ $tickets->links() }}
+    {{ $tickets->links() }} <!-- Đảm bảo dòng này tồn tại và không bị lỗi cú pháp -->
 </div>
 @endsection

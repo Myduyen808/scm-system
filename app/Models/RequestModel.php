@@ -16,6 +16,7 @@ class RequestModel extends Model
         'note', // Ghi chú từ nhân viên
         'employee_feedback', // Phản hồi từ nhà cung cấp
         'request_number', // Mã yêu cầu (nếu có)
+        'note_from_supplier'
     ];
 
     public function supplier()

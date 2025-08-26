@@ -68,6 +68,7 @@
                     <thead class="table-dark">
                         <tr>
                             <th>Mã đơn hàng</th>
+                            <th>Hình ảnh sản phẩm</th> <!-- Thêm cột mới -->
                             <th>Khách hàng</th>
                             <th>Tổng tiền</th>
                             <th>Trạng thái</th>
@@ -79,6 +80,14 @@
                         @forelse($orders as $order)
                         <tr>
                             <td><code>{{ $order->order_number }}</code></td>
+                            <td>
+                                @foreach($order->orderItems as $item)
+                                    <img src="{{ asset('storage/' . $item->product->image) }}"
+                                         alt="{{ $item->product->name }}"
+                                         style="width: 50px; height: 50px; object-fit: cover; margin-right: 5px;"
+                                         class="img-thumbnail">
+                                @endforeach
+                            </td> <!-- Hiển thị hình ảnh sản phẩm -->
                             <td>
                                 {{ $order->customer ? $order->customer->name : 'Khách vãng lai' }}
                                 <br><small class="text-muted">{{ $order->customer ? $order->customer->email : '' }}</small>
@@ -103,8 +112,8 @@
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <a href="{{ route('admin.orders.show', $order) }}"
-                                    class="btn btn-outline-primary"
-                                    title="Xem chi tiết">
+                                       class="btn btn-outline-primary"
+                                       title="Xem chi tiết">
                                         <i class="fas fa-eye"></i>
                                     </a>
                                     <button type="button"
@@ -127,7 +136,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="6" class="text-center py-4">
+                            <td colspan="7" class="text-center py-4">
                                 <div class="text-muted">
                                     <i class="fas fa-shopping-cart fa-3x mb-3"></i>
                                     <p>Không có đơn hàng nào được tìm thấy.</p>
@@ -207,6 +216,29 @@ $(document).ready(function() {
         $('#cancelOrderModal').modal('show');
     });
 
+    // Confirm payment
+    $('.confirm-payment').on('click', function() {
+        const orderId = $(this).data('order-id');
+        const orderNumber = $(this).data('order-number');
+
+        if (confirm(`Xác nhận thanh toán cho đơn hàng ${orderNumber}?`)) {
+            $.ajax({
+                url: `/admin/orders/${orderId}/confirm-payment`,
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                },
+                success: function(response) {
+                    showToast('success', response.message || 'Xác nhận thanh toán thành công!');
+                    location.reload(); // Tải lại trang để cập nhật
+                },
+                error: function() {
+                    showToast('error', 'Có lỗi xảy ra khi xác nhận thanh toán!');
+                }
+            });
+        }
+    });
+
     // Toast notification function
     function showToast(type, message) {
         const toast = $(`
@@ -226,28 +258,6 @@ $(document).ready(function() {
         $('.toast-container').append(toast);
         toast.toast('show');
         setTimeout(() => toast.remove(), 5000);
-    }
-});
-// Confirm payment
-$('.confirm-payment').on('click', function() {
-    const orderId = $(this).data('order-id');
-    const orderNumber = $(this).data('order-number');
-
-    if (confirm(`Xác nhận thanh toán cho đơn hàng ${orderNumber}?`)) {
-        $.ajax({
-            url: `/admin/orders/${orderId}/confirm-payment`,
-            method: 'POST',
-            data: {
-                _token: '{{ csrf_token() }}',
-            },
-            success: function(response) {
-                showToast('success', response.message || 'Xác nhận thanh toán thành công!');
-                location.reload(); // Tải lại trang để cập nhật
-            },
-            error: function() {
-                showToast('error', 'Có lỗi xảy ra khi xác nhận thanh toán!');
-            }
-        });
     }
 });
 </script>

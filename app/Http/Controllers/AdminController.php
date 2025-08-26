@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Storage; // vì bạn có dùng Storage::exists()
 use App\Models\Setting;
 use App\Models\SupportTicket;
 use App\Models\Promotion;
+use App\Models\Ticket;
 use Illuminate\Support\Facades\Response; // Thêm dòng này
 use Illuminate\Support\Facades\Artisan;
 use Spatie\Activitylog\Models\Activity;
@@ -39,24 +40,27 @@ class AdminController extends Controller
         $totalProducts = Product::count();
         $totalOrders = Order::count();
         $pendingOrders = Order::where('status', 'pending')->count();
-        $openTickets = SupportTicket::where('status', 'open')->count();
+        $openTickets = SupportTicket::where('status', 'open')->count(); // Cần kiểm tra model
         $totalUsers = User::count();
-        $totalRevenue = Order::where('status', 'delivered')->sum('total_amount'); // Đã sửa từ 'completed' thành 'delivered'
+        $totalRevenue = Order::where('status', 'delivered')->sum('total_amount');
         $activePromotions = Promotion::where('is_active', true)
                                     ->whereDate('start_date', '<=', now())
                                     ->whereDate('end_date', '>=', now())
                                     ->count();
 
-        $ticketToAssign = SupportTicket::where('status', 'open')->first();
+        // Sửa query $ticketToAssign
+        $ticketToAssign = SupportTicket::whereIn('status', ['open', 'pending'])
+                                    ->whereNull('assigned_to')
+                                    ->first();
 
         $orderStats = [
             'pending' => Order::where('status', 'pending')->count(),
             'processing' => Order::where('status', 'processing')->count(),
-            'delivered' => Order::where('status', 'delivered')->count(), // Đã sửa từ 'completed' thành 'delivered'
+            'delivered' => Order::where('status', 'delivered')->count(),
         ];
 
         $monthlyRevenue = Order::selectRaw('MONTH(created_at) as month, SUM(total_amount) as revenue')
-            ->where('status', 'delivered') // Đã sửa từ 'completed' thành 'delivered'
+            ->where('status', 'delivered')
             ->groupBy('month')
             ->orderBy('month')
             ->pluck('revenue', 'month');
@@ -76,7 +80,7 @@ class AdminController extends Controller
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get();
-        $reviews = Review::with(['product', 'user'])->paginate(10); // Thêm truy vấn cho reviews
+        $reviews = Review::with(['product', 'user'])->paginate(10);
 
         return view('admin.dashboard', compact(
             'totalProducts', 'totalOrders', 'totalUsers', 'totalRevenue',
@@ -714,21 +718,27 @@ class AdminController extends Controller
 
     public function assignTicket($ticketId, Request $request)
     {
-        $request->validate([
-            'assigned_to' => 'required|exists:users,id'
-        ]);
+        $request->validate(['assigned_to' => 'required|exists:users,id']);
+        $ticket = Ticket::findOrFail($ticketId);
 
-        $ticket = SupportTicket::findOrFail($ticketId);
+        if (!in_array($ticket->status, ['open', 'pending'])) {
+            return redirect()->route('admin.tickets')->with('error', 'Ticket không thể phân công!');
+        }
+
         $ticket->update([
             'assigned_to' => $request->assigned_to,
-            'status' => 'assigned' // Thêm trạng thái để đánh dấu ticket đã được phân công
+            'status' => 'assigned',
         ]);
 
         return redirect()->route('admin.tickets')->with('success', 'Phân công ticket thành công!');
     }
+
     public function tickets()
     {
-        $tickets = SupportTicket::with('user', 'assignedTo')->get();
+        $tickets = Ticket::with('user', 'assignedTo')
+            ->orderBy('status')
+            ->orderBy('created_at', 'desc')
+            ->get();
         return view('admin.tickets.index', compact('tickets'));
     }
 

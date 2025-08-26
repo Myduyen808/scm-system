@@ -17,6 +17,11 @@ return new class extends Migration
             $table->text('reply')->nullable(); // Phản hồi từ nhân viên
             $table->foreignId('employee_id')->nullable()->constrained('users')->onDelete('set null'); // Nhân viên xử lý
             $table->timestamps();
+            $table->foreignId('assigned_to')
+            ->nullable()
+            ->constrained('users')
+            ->onDelete('set null');
+
         });
     }
 

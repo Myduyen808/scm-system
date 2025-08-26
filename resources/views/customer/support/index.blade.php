@@ -7,7 +7,18 @@
     <h1 class="mb-4"><i class="fas fa-headset"></i> Hỗ Trợ Khách Hàng</h1>
     <div class="card fade-in">
         <div class="card-body">
-            <a href="{{ route('customer.support.create') }}" class="btn btn-primary mb-3"><i class="fas fa-plus"></i> Tạo yêu cầu mới</a>
+            @if(session('success'))
+                <div class="alert alert-success">{{ session('success') }}</div>
+            @endif
+            @foreach($tickets as $ticket)
+                @if(session("ticket_response_{$ticket->id}"))
+                    <div class="alert alert-success">{{ session("ticket_response_{$ticket->id}") }}</div>
+                @endif
+            @endforeach
+            @if(session('error'))
+                <div class="alert alert-danger">{{ session('error') }}</div>
+            @endif
+            <a href="{{ route('customer.createSupport') }}" class="btn btn-primary mb-3"><i class="fas fa-plus"></i> Tạo yêu cầu mới</a>
             <table class="table table-striped">
                 <thead>
                     <tr>
@@ -21,12 +32,12 @@
                 <tbody>
                     @forelse($tickets as $ticket)
                     <tr>
-                        <td>{{ $ticket->ticket_number }}</td>
-                        <td>{{ $ticket->title }}</td>
+                        <td>{{ $ticket->id }}</td>
+                        <td>{{ $ticket->subject }}</td>
                         <td>{{ $ticket->status }}</td>
                         <td>{{ $ticket->created_at->format('d/m/Y H:i') }}</td>
                         <td>
-                            <a href="{{ route('customer.support.show', $ticket->id) }}" class="btn btn-info btn-sm"><i class="fas fa-eye"></i></a>
+                            <a href="{{ route('customer.showSupport', $ticket->id) }}" class="btn btn-info btn-sm"><i class="fas fa-eye"></i></a>
                         </td>
                     </tr>
                     @empty
@@ -34,7 +45,7 @@
                     @endforelse
                 </tbody>
             </table>
-            {{ $tickets->links() }}
+            {{ $tickets->links() }} <!-- Đảm bảo dòng này tồn tại và không bị lỗi cú pháp -->
         </div>
     </div>
 </div>

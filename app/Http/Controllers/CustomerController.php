@@ -16,6 +16,7 @@ use App\Models\Promotion;
 use Illuminate\Support\Facades\Auth;
 use Stripe\Stripe;
 use App\Models\Cart;
+use App\Models\Ticket;
 use Stripe\PaymentIntent;
 use App\Services\PaypalDirectService;
 use App\Services\MoMoDirectService; // Thay đổi này
@@ -683,48 +684,18 @@ class CustomerController extends Controller
         return view('customer.support.index', compact('tickets'));
     }
 
-    public function createSupport()
-    {
-        return view('customer.support.create');
-    }
-
-    public function storeSupport(Request $request)
-    {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string|max:1000',
-        ]);
-
-        SupportTicket::create([
-            'user_id' => Auth::id(),
-            'ticket_number' => 'TICK-' . time(),
-            'title' => $validated['title'],
-            'description' => $validated['description'],
-            'status' => 'open',
-        ]);
-
-        return redirect()->route('customer.support.index')->with('success', 'Đã tạo yêu cầu hỗ trợ!');
-    }
-
-    public function showSupport($id)
-    {
-        $ticket = SupportTicket::where('user_id', Auth::id())->findOrFail($id);
-        return view('customer.support.show', compact('ticket'));
-    }
-
     public function replySupport(Request $request, $id)
     {
-        $ticket = SupportTicket::where('user_id', Auth::id())->findOrFail($id);
+        $ticket = Ticket::where('user_id', Auth::id())->findOrFail($id);
         $validated = $request->validate(['message' => 'required|string|max:1000']);
 
-        // Giả sử có model SupportTicketReply
         $ticket->replies()->create([
             'user_id' => Auth::id(),
             'message' => $validated['message'],
         ]);
 
-        $ticket->update(['status' => 'pending']);
-        return redirect()->route('customer.support.show', $id)->with('success', 'Đã gửi phản hồi!');
+        $ticket->update(['status' => 'pending']); // Chờ admin phân công
+        return redirect()->route('customer.viewTickets')->with('success', 'Phản hồi đã được gửi!');
     }
 
     public function promotions()
@@ -977,27 +948,62 @@ public function momoInput($orderId)
     }
 
     public function createReview($product)
-{
-    $product = Product::findOrFail($product);
-    $cartCount = auth()->user()->cartItems()->sum('quantity');
-    return view('customer.reviews.create', compact('product', 'cartCount'));
-}
+    {
+        $product = Product::findOrFail($product);
+        $cartCount = auth()->user()->cartItems()->sum('quantity');
+        return view('customer.reviews.create', compact('product', 'cartCount'));
+    }
 
-// public function storeReview(Request $request, $product)
-// {
-//     $request->validate([
-//         'rating' => 'required|integer|between:1,5',
-//         'comment' => 'required|string|max:1000',
-//     ]);
+    public function createSupport()
+    {
+        return view('customer.support.create');
+    }
 
-//     $user = auth()->user();
-//     $review = $user->reviews()->create([
-//         'product_id' => $product,
-//         'rating' => $request->rating,
-//         'comment' => $request->comment,
-//         'reviewed_at' => now(),
-//     ]);
+    public function storeSupport(Request $request)
+    {
+        $validated = $request->validate([
+            'subject' => 'required|string|max:255',
+            'description' => 'required|string|max:1000',
+        ]);
 
-//     return redirect()->route('customer.products.for-review')->with('success', 'Đánh giá đã được gửi thành công!');
-// }
+        Ticket::create([
+            'user_id' => Auth::id(),
+            'subject' => $validated['subject'],
+            'description' => $validated['description'],
+            'status' => 'open', // Mặc định open, chờ admin
+            'assigned_to' => null,
+        ]);
+
+        return redirect()->route('customer.viewTickets')->with('success', 'Yêu cầu đã được gửi!');
+    }
+
+    public function viewTickets()
+    {
+        $tickets = Ticket::where('user_id', Auth::id())->paginate(10); // Số lượng mục mỗi trang, có thể điều chỉnh
+        return view('customer.support.index', compact('tickets'));
+    }
+
+    public function showSupport($id)
+    {
+        $ticket = Ticket::where('user_id', Auth::id())->findOrFail($id);
+        if ($ticket->status === 'replied') {
+            $reply = $ticket->replies()->latest()->first();
+            return view('customer.support.show', compact('ticket', 'reply'))->with('success', 'Nhân viên đã phản hồi yêu cầu của bạn!');
+        }
+        return view('customer.support.show', compact('ticket'));
+    }
+
+    // Thêm phương thức để hiển thị thông báo khi nhân viên phản hồi
+    public function checkTicketUpdates()
+    {
+        $tickets = Ticket::where('user_id', Auth::id())->where('status', 'closed')->get();
+        foreach ($tickets as $ticket) {
+            if (!session()->has("ticket_response_{$ticket->id}")) {
+                session()->flash("ticket_response_{$ticket->id}", 'Ticket của bạn đã được xử lý!');
+            }
+        }
+        return redirect()->route('customer.viewTickets');
+    }
+
+
 }

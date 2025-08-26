@@ -6,10 +6,13 @@ use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Order;
 use App\Models\Promotion;
+use App\Models\Ticket;
 use App\Models\RequestModel; // Thêm dòng này
 use App\Models\Review; // Thêm dòng này
 use App\Models\SupportTicket;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+
 
 class EmployeeController extends Controller
 {
@@ -323,20 +326,6 @@ class EmployeeController extends Controller
         return view('employee.support.index', compact('tickets'));
     }
 
-    public function replyTicket($ticketId, Request $request)
-    {
-        $request->validate(['message' => 'required|string']);
-        $ticket = SupportTicket::findOrFail($ticketId);
-
-        // Có thể tạo bảng replies hoặc dùng comment system
-        $ticket->replies()->create([
-            'user_id' => auth()->id(),
-            'message' => $request->message
-        ]);
-
-        return back()->with('success', 'Trả lời ticket thành công!');
-    }
-
     public function updateOrderStatus(Request $request, $order)
     {
         $order = Order::findOrFail($order);
@@ -432,7 +421,7 @@ class EmployeeController extends Controller
             abort(403);
         }
         $lowStockProducts = Product::where('supplier_id', '!=', null)
-            ->where('stock_quantity', '<', 10) // Giả định ngưỡng tồn kho thấp
+            ->where('stock_quantity', '<', 10)
             ->with('supplier')
             ->get();
         return view('employee.dashboard-stock-request', compact('lowStockProducts'));
@@ -442,6 +431,7 @@ class EmployeeController extends Controller
         if (!Auth::user()->can('manage inventory')) {
             abort(403);
         }
+
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
             'quantity' => 'required|integer|min:1',
@@ -449,17 +439,17 @@ class EmployeeController extends Controller
             'note' => 'nullable|string|max:500',
         ]);
 
-        // Kiểm tra supplier_id của sản phẩm
         $product = Product::findOrFail($validated['product_id']);
-        if ($product->supplier_id !== $validated['supplier_id']) {
-            return redirect()->back()->with('error', 'Nhà cung cấp không khớp với sản phẩm.');
+        if ($product->supplier_id && $product->supplier_id != $validated['supplier_id']) {
+            return redirect()->back()->withErrors(['supplier_id' => 'Nhà cung cấp không khớp với sản phẩm.'])->withInput();
         }
 
         $requestData = [
             'supplier_id' => $validated['supplier_id'],
             'product_id' => $validated['product_id'],
             'quantity' => $validated['quantity'],
-            'description' => 'Yêu cầu nhập hàng: ' . ($validated['note'] ?? ''),
+            'description' => 'Yêu cầu nhập hàng', // Giữ description làm tiêu đề chung
+            'employee_note' => $validated['note'] ?? '', // Lưu ghi chú từ nhân viên
             'status' => 'pending',
             'created_at' => now(),
             'updated_at' => now(),
@@ -474,5 +464,67 @@ class EmployeeController extends Controller
         }
 
         return redirect()->route('employee.dashboard')->with('success', 'Yêu cầu nhập hàng đã được gửi thành công!');
+    }
+
+    public function employeeSupport()
+    {
+        $tickets = Ticket::where('assigned_to', Auth::id())
+            ->orWhereNull('assigned_to')
+            ->where('status', 'open')
+            ->paginate(10); // Số lượng mục mỗi trang, có thể điều chỉnh
+        return view('employee.support.index', compact('tickets'));
+    }
+
+    public function replyTicket(Request $request, $id)
+    {
+        $ticket = Ticket::findOrFail($id);
+        if ($ticket->assigned_to !== Auth::id() || $ticket->status !== 'assigned') {
+            return redirect()->route('employee.employeeSupport')->with('error', 'Bạn không được phép trả lời ticket này!');
+        }
+
+        $validated = $request->validate(['message' => 'required|string|max:1000']);
+
+        $ticket->replies()->create([
+            'user_id' => Auth::id(),
+            'message' => $validated['message'],
+        ]);
+
+        $ticket->update(['status' => 'replied']);
+
+        return redirect()->route('employee.employeeSupport')->with('success', 'Phản hồi đã được gửi!');
+    }
+
+    public function showTicket($id)
+{
+    $ticket = Ticket::findOrFail($id);
+    if ($ticket->assigned_to !== Auth::id()) {
+        return redirect()->route('employee.employeeSupport')->with('error', 'Bạn không được phép xem ticket này!');
+    }
+    return view('employee.support.show', compact('ticket'));
+}
+
+public function respondToRequest(Request $request, $id)
+    {
+        if (!Auth::user()->can('manage supplier requests')) {
+            abort(403);
+        }
+
+        $requestModel = RequestModel::findOrFail($id);
+        if ($requestModel->supplier_id != Auth::id()) {
+            abort(403, 'Bạn không được phép phản hồi yêu cầu này.');
+        }
+
+        $validated = $request->validate([
+            'note_from_supplier' => 'required|string|max:1000',
+            'status' => 'required|in:accepted,rejected',
+        ]);
+
+        $requestModel->update([
+            'note_from_supplier' => $validated['note_from_supplier'],
+            'status' => $validated['status'],
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('supplier.requests')->with('success', 'Phản hồi đã được gửi thành công!');
     }
 }

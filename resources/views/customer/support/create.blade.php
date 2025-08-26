@@ -7,12 +7,15 @@
     <h1 class="mb-4"><i class="fas fa-headset"></i> Tạo Yêu Cầu Hỗ Trợ</h1>
     <div class="card fade-in">
         <div class="card-body">
-            <form action="{{ route('customer.support.store') }}" method="POST">
+            @if(session('error'))
+                <div class="alert alert-danger">{{ session('error') }}</div>
+            @endif
+            <form action="{{ route('customer.storeSupport') }}" method="POST">
                 @csrf
                 <div class="mb-3">
                     <label class="form-label">Tiêu đề</label>
-                    <input type="text" name="title" class="form-control @error('title') is-invalid @enderror" required>
-                    @error('title') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    <input type="text" name="subject" class="form-control @error('subject') is-invalid @enderror" required>
+                    @error('subject') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Mô tả</label>
@@ -20,7 +23,7 @@
                     @error('description') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Gửi yêu cầu</button>
-                <a href="{{ route('customer.support.index') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Quay lại</a>
+                <a href="{{ route('customer.viewTickets') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Quay lại</a>
             </form>
         </div>
     </div>

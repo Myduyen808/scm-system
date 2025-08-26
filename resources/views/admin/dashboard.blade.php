@@ -15,7 +15,6 @@
 
     <div class="row">
         @can('manage inventory')
-        <!-- Quản lý kho -->
         <div class="col-md-4 mb-4">
             <div class="card h-100 border-primary">
                 <div class="card-body text-center">
@@ -31,7 +30,6 @@
         @endcan
 
         @can('manage orders')
-        <!-- Quản lý đơn hàng -->
         <div class="col-md-4 mb-4">
             <div class="card h-100 border-success">
                 <div class="card-body text-center">
@@ -47,7 +45,6 @@
         @endcan
 
         @can('view reports')
-        <!-- Báo cáo doanh thu -->
         <div class="col-md-4 mb-4">
             <div class="card h-100 border-info">
                 <div class="card-body text-center">
@@ -63,7 +60,6 @@
         @endcan
 
         @can('approve products')
-        <!-- Phê duyệt sản phẩm -->
         <div class="col-md-4 mb-4">
             <div class="card h-100 border-warning">
                 <div class="card-body text-center">
@@ -77,7 +73,6 @@
         @endcan
 
         @can('manage inventory')
-        <!-- Thêm sản phẩm -->
         <div class="col-md-4 mb-4">
             <div class="card h-100 border-secondary">
                 <div class="card-body text-center">
@@ -93,7 +88,6 @@
         @endcan
 
         @can('manage users')
-        <!-- Quản lý người dùng -->
         <div class="col-md-4 mb-4">
             <div class="card h-100 border-warning">
                 <div class="card-body text-center">
@@ -109,7 +103,6 @@
         @endcan
 
         @can('manage settings')
-        <!-- Cài đặt hệ thống -->
         <div class="col-md-4 mb-4">
             <div class="card h-100 border-dark">
                 <div class="card-body text-center">
@@ -125,7 +118,6 @@
         @endcan
 
         @can('manage promotions')
-        <!-- Quản lý khuyến mãi -->
         <div class="col-md-4 mb-4">
             <div class="card h-100 border-info">
                 <div class="card-body text-center">
@@ -141,44 +133,42 @@
         @endcan
 
         @can('manage tickets')
-        <!-- Quản lý ticket -->
-        @if($ticketToAssign)
-            <form action="{{ route('admin.tickets.assign', ['id' => $ticketToAssign->id]) }}" method="POST">
-                @csrf
+            @if($ticketToAssign)
+                <form action="{{ route('admin.tickets.assign', ['id' => $ticketToAssign->id]) }}" method="POST">
+                    @csrf
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100 border-danger">
+                            <div class="card-body text-center">
+                                <i class="fas fa-ticket-alt fa-3x text-danger mb-3"></i>
+                                <h5 class="card-title">Quản lý ticket</h5>
+                                <p class="card-text">Phân công ticket cho nhân viên</p>
+                                <select name="assigned_to" class="form-control mb-2" required>
+                                    @foreach(\App\Models\User::role('employee')->get() as $employee)
+                                        <option value="{{ $employee->id }}">{{ $employee->name }}</option>
+                                    @endforeach
+                                </select>
+                                <button type="submit" class="btn btn-danger btn-block">
+                                    <i class="fas fa-arrow-right"></i> Phân công
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            @else
                 <div class="col-md-4 mb-4">
-                    <div class="card h-100 border-danger">
+                    <div class="card h-100 border-secondary">
                         <div class="card-body text-center">
-                            <i class="fas fa-ticket-alt fa-3x text-danger mb-3"></i>
+                            <i class="fas fa-ticket-alt fa-3x text-secondary mb-3"></i>
                             <h5 class="card-title">Quản lý ticket</h5>
-                            <p class="card-text">Phân công ticket cho nhân viên</p>
-                            <select name="assigned_to" class="form-control mb-2" required>
-                                @foreach(\App\Models\User::role('employee')->get() as $employee)
-                                    <option value="{{ $employee->id }}">{{ $employee->name }}</option>
-                                @endforeach
-                            </select>
-                            <button type="submit" class="btn btn-danger btn-block">
-                                <i class="fas fa-arrow-right"></i> Phân công
-                            </button>
+                            <p class="card-text">Hiện không có ticket nào để phân công</p>
+                            <button class="btn btn-secondary btn-block" disabled>Chưa có ticket</button>
                         </div>
                     </div>
                 </div>
-            </form>
-        @else
-            <div class="col-md-4 mb-4">
-                <div class="card h-100 border-secondary">
-                    <div class="card-body text-center">
-                        <i class="fas fa-ticket-alt fa-3x text-secondary mb-3"></i>
-                        <h5 class="card-title">Quản lý ticket</h5>
-                        <p class="card-text">Hiện không có ticket nào để phân công</p>
-                        <button class="btn btn-secondary btn-block" disabled>Chưa có ticket</button>
-                    </div>
-                </div>
-            </div>
-        @endif
+            @endif
         @endcan
 
         @can('manage reviews')
-        <!-- Quản lý đánh giá -->
         <div class="col-md-4 mb-4">
             <div class="card h-100 border-primary">
                 <div class="card-body text-center">
@@ -193,59 +183,6 @@
         </div>
         @endcan
     </div>
-
-    {{-- <!-- Quản lý đánh giá của khách hàng -->
-    @can('manage reviews')
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-body">
-                    <h5>Đánh giá của khách hàng</h5>
-                    @if($reviews->isEmpty())
-                        <p class="text-center">Chưa có đánh giá nào.</p>
-                    @else
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Tên sản phẩm</th>
-                                    <th>Khách hàng</th>
-                                    <th>Số sao</th>
-                                    <th>Nội dung</th>
-                                    <th>Ngày gửi</th>
-                                    <th>Hành động</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($reviews as $review)
-                                <tr>
-                                    <td>{{ $review->product->name }}</td>
-                                    <td>{{ $review->user ? $review->user->name : 'Khách vãng lai' }}</td>
-                                    <td>{{ $review->rating }} <i class="fas fa-star text-warning"></i></td>
-                                    <td>{{ Str::limit($review->comment, 50, '...') }}</td>
-                                    <td>{{ $review->created_at->format('d/m/Y H:i') }}</td>
-                                    <td>
-                                        <a href="{{ route('admin.reviews.show', $review->id) }}" class="btn btn-sm btn-info">
-                                            <i class="fas fa-eye"></i> Xem
-                                        </a>
-                                        <form action="{{ route('admin.reviews.delete', $review->id) }}" method="POST" class="d-inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Bạn có chắc muốn xóa đánh giá này?')">
-                                                <i class="fas fa-trash"></i> Xóa
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                        {{ $reviews->links() }}
-                    @endif
-                </div>
-            </div>
-        </div>
-    </div>
-    @endcan --}}
 
     <!-- Statistics Cards -->
     <div class="row mt-4">
@@ -466,11 +403,9 @@
 </div>
 @endsection
 
-
 @section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // =================== Biểu đồ thống kê đơn hàng ===================
     const ctxOrderStats = document.getElementById('orderStatsChart').getContext('2d');
     new Chart(ctxOrderStats, {
         type: 'bar',
@@ -504,7 +439,6 @@
         }
     });
 
-    // =================== Biểu đồ doanh thu theo tháng ===================
     const ctxRevenue = document.getElementById('revenueChart').getContext('2d');
     if (ctxRevenue) {
         new Chart(ctxRevenue, {
@@ -518,7 +452,7 @@
                     backgroundColor: 'rgba(76, 175, 80, 0.2)',
                     borderWidth: 2,
                     fill: true,
-                    tension: 0.3 // bo tròn đường line cho đẹp
+                    tension: 0.3
                 }]
             },
             options: {
@@ -546,9 +480,6 @@
                 }
             }
         });
-    } else {
-        console.log('Không tìm thấy canvas #revenueChart');
     }
 </script>
 @endsection
-

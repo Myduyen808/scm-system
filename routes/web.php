@@ -270,3 +270,31 @@ Route::post('/customer/momo/confirm/{orderId}', [CustomerController::class, 'mom
 
 Route::get('/customer/momo/input/{orderId}', [CustomerController::class, 'momoInput'])
     ->name('customer.momo.input');
+
+
+Route::middleware(['auth', 'role:customer'])->group(function () {
+    Route::get('/support', [CustomerController::class, 'viewTickets'])->name('customer.viewTickets');
+    Route::get('/support/create', [CustomerController::class, 'createSupport'])->name('customer.createSupport');
+    Route::post('/support', [CustomerController::class, 'storeSupport'])->name('customer.storeSupport');
+    Route::get('/support/{id}', [CustomerController::class, 'showSupport'])->name('customer.showSupport');
+    Route::get('/support/check-updates', [CustomerController::class, 'checkTicketUpdates'])->name('customer.checkTicketUpdates');
+
+    Route::post('/customer/ticket/{id}/reply', [CustomerController::class, 'replySupport'])->name('customer.replySupport');
+    Route::get('/customer/ticket/{id}', [CustomerController::class, 'showSupport'])->name('customer.showSupport');
+});
+
+Route::middleware(['auth', 'role:employee'])->group(function () {
+    Route::get('/employee/support', [EmployeeController::class, 'employeeSupport'])->name('employee.support');
+    Route::patch('/employee/ticket/{id}', [EmployeeController::class, 'replyTicket'])->name('employee.replyTicket');
+});
+
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/tickets', [AdminController::class, 'tickets'])->name('admin.tickets');
+    Route::post('/tickets/{id}/assign', [AdminController::class, 'assignTicket'])->name('admin.tickets.assign');
+    Route::post('/admin/tickets/assign/{id}', [AdminController::class, 'assignTicket'])->name('admin.tickets.assign');
+});
+
+
+Route::middleware(['auth', 'role:supplier'])->group(function () {
+    Route::patch('/supplier/requests/{id}/respond', [SupplierController::class, 'respondToRequest'])->name('supplier.respond.request');
+});

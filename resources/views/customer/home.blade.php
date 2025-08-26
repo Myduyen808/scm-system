@@ -26,12 +26,11 @@
             </div>
         </div>
 
-        <!-- Card Giỏ hàng -->
         <div class="col-md-3 mb-4">
             <div class="card border-success">
                 <div class="card-body text-center">
                     <i class="fas fa-shopping-cart fa-3x text-success mb-3"></i>
-                    <h5 class="card-title">Giỏ hàng </h5>
+                    <h5 class="card-title">Giỏ hàng</h5>
                     <p class="card-text">Xem và quản lý giỏ hàng</p>
                     <a href="{{ route('customer.cart') }}" class="btn btn-success">
                         <i class="fas fa-arrow-right"></i> Xem giỏ hàng
@@ -92,6 +91,7 @@
             </div>
         </div>
 
+        @can('create tickets')
         <div class="col-md-3 mb-4">
             <div class="card border-danger">
                 <div class="card-body text-center">
@@ -104,19 +104,7 @@
                 </div>
             </div>
         </div>
-
-        {{-- <div class="col-md-3 mb-4">
-            <div class="card border-primary">
-                <div class="card-body text-center">
-                    <i class="fas fa-gift fa-3x text-primary mb-3"></i>
-                    <h5 class="card-title">Ưu đãi & Mã giảm giá</h5>
-                    <p class="card-text">Khám phá các chương trình khuyến mãi</p>
-                    <a href="{{ route('customer.promotions') }}" class="btn btn-primary">
-                        <i class="fas fa-arrow-right"></i> Xem ưu đãi
-                    </a>
-                </div>
-            </div>
-        </div> --}}
+        @endcan
     </div>
 
     <!-- Featured Products Section -->
