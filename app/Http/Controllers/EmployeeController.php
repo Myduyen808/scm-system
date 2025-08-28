@@ -277,12 +277,12 @@ class EmployeeController extends Controller
         return view('employee.support.index', compact('tickets'));
     }
 
-    public function replySupportTicket($ticketId)
+    public function replySupportTicket($id)
     {
-        if (!Auth::user()->can('support customer')) {
-            abort(403);
+        $ticket = Ticket::findOrFail($id);
+        if ($ticket->assigned_to !== Auth::id() || !in_array($ticket->status, ['assigned', 'replied'])) {
+            return redirect()->route('employee.employeeSupport')->with('error', 'Bạn không được phép trả lời ticket này!');
         }
-        $ticket = SupportTicket::findOrFail($ticketId);
         return view('employee.support.reply', compact('ticket'));
     }
 
@@ -469,39 +469,39 @@ class EmployeeController extends Controller
     public function employeeSupport()
     {
         $tickets = Ticket::where('assigned_to', Auth::id())
-            ->orWhereNull('assigned_to')
-            ->where('status', 'open')
-            ->paginate(10); // Số lượng mục mỗi trang, có thể điều chỉnh
+            ->where('status', 'assigned')
+            ->paginate(10);
         return view('employee.support.index', compact('tickets'));
     }
 
-    public function replyTicket(Request $request, $id)
-    {
-        $ticket = Ticket::findOrFail($id);
-        if ($ticket->assigned_to !== Auth::id() || $ticket->status !== 'assigned') {
-            return redirect()->route('employee.employeeSupport')->with('error', 'Bạn không được phép trả lời ticket này!');
-        }
-
-        $validated = $request->validate(['message' => 'required|string|max:1000']);
-
-        $ticket->replies()->create([
-            'user_id' => Auth::id(),
-            'message' => $validated['message'],
-        ]);
-
-        $ticket->update(['status' => 'replied']);
-
-        return redirect()->route('employee.employeeSupport')->with('success', 'Phản hồi đã được gửi!');
-    }
-
-    public function showTicket($id)
+public function showTicket($id)
 {
     $ticket = Ticket::findOrFail($id);
     if ($ticket->assigned_to !== Auth::id()) {
         return redirect()->route('employee.employeeSupport')->with('error', 'Bạn không được phép xem ticket này!');
     }
-    return view('employee.support.show', compact('ticket'));
+    return view('employee.support.reply', compact('ticket')); // tên view đúng
 }
+
+public function replyTicket(Request $request, $id)
+{
+    $ticket = Ticket::findOrFail($id);
+    if ($ticket->assigned_to !== Auth::id() || !in_array($ticket->status, ['assigned', 'replied'])) {
+        return redirect()->route('employee.employeeSupport')->with('error', 'Bạn không được phép trả lời ticket này!');
+    }
+
+    $validated = $request->validate(['message' => 'required|string|max:1000']);
+
+    $ticket->replies()->create([
+        'user_id' => Auth::id(),
+        'message' => $validated['message'],
+    ]);
+
+    $ticket->update(['status' => 'replied']);
+
+    return redirect()->route('employee.employeeSupport')->with('success', 'Phản hồi đã được gửi!');
+}
+
 
 public function respondToRequest(Request $request, $id)
     {

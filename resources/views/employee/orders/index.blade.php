@@ -17,6 +17,7 @@
     <table class="table table-striped">
         <thead>
             <tr>
+                <th>Hình ảnh</th>
                 <th>Mã đơn hàng</th>
                 <th>Trạng thái</th>
                 <th>Thao tác</th>
@@ -25,6 +26,17 @@
         <tbody>
             @forelse($orders as $order)
             <tr>
+                <td>
+                    @if($order->orderItems->isNotEmpty())
+                        @if($order->orderItems->first()->product && $order->orderItems->first()->product->image)
+                            <img src="{{ Storage::url($order->orderItems->first()->product->image) }}" alt="{{ $order->orderItems->first()->product->name }}" class="img-thumbnail" style="max-width: 50px; max-height: 50px;">
+                        @else
+                            <img src="{{ asset('images/placeholder.jpg') }}" alt="No image" class="img-thumbnail" style="max-width: 50px; max-height: 50px;">
+                        @endif
+                    @else
+                        <img src="{{ asset('images/placeholder.jpg') }}" alt="No image" class="img-thumbnail" style="max-width: 50px; max-height: 50px;">
+                    @endif
+                </td>
                 <td>{{ $order->order_number }}</td>
                 <td>
                     <form action="{{ route('employee.orders.update-status', $order) }}" method="POST" class="d-inline">
@@ -49,7 +61,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="3" class="text-center">Không có đơn hàng</td>
+                <td colspan="4" class="text-center">Không có đơn hàng</td>
             </tr>
             @endforelse
         </tbody>

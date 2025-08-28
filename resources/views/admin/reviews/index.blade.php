@@ -23,6 +23,7 @@
                         <table class="table table-striped">
                             <thead>
                                 <tr>
+                                    <th>Hình ảnh</th>
                                     <th>Tên sản phẩm</th>
                                     <th>Khách hàng</th>
                                     <th>Số sao</th>
@@ -34,6 +35,13 @@
                             <tbody>
                                 @foreach ($reviews as $review)
                                 <tr>
+                                    <td>
+                                        @if($review->product && $review->product->image)
+                                            <img src="{{ Storage::url($review->product->image) }}" alt="{{ $review->product->name }}" class="img-thumbnail" style="max-width: 100px; max-height: 100px;">
+                                        @else
+                                            <img src="{{ asset('images/placeholder.jpg') }}" alt="No image" class="img-thumbnail" style="max-width: 100px; max-height: 100px;">
+                                        @endif
+                                    </td>
                                     <td>{{ $review->product ? $review->product->name : 'Không xác định' }}</td>
                                     <td>{{ $review->user ? $review->user->name : 'Khách vãng lai' }}</td>
                                     <td>{{ $review->rating }} <i class="fas fa-star text-warning"></i></td>

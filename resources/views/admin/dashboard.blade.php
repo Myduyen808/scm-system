@@ -132,41 +132,33 @@
         </div>
         @endcan
 
-        @can('manage tickets')
-            @if($ticketToAssign)
-                <form action="{{ route('admin.tickets.assign', ['id' => $ticketToAssign->id]) }}" method="POST">
-                    @csrf
-                    <div class="col-md-4 mb-4">
-                        <div class="card h-100 border-danger">
-                            <div class="card-body text-center">
-                                <i class="fas fa-ticket-alt fa-3x text-danger mb-3"></i>
-                                <h5 class="card-title">Quản lý ticket</h5>
-                                <p class="card-text">Phân công ticket cho nhân viên</p>
-                                <select name="assigned_to" class="form-control mb-2" required>
-                                    @foreach(\App\Models\User::role('employee')->get() as $employee)
-                                        <option value="{{ $employee->id }}">{{ $employee->name }}</option>
-                                    @endforeach
-                                </select>
-                                <button type="submit" class="btn btn-danger btn-block">
-                                    <i class="fas fa-arrow-right"></i> Phân công
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            @else
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 border-secondary">
-                        <div class="card-body text-center">
-                            <i class="fas fa-ticket-alt fa-3x text-secondary mb-3"></i>
-                            <h5 class="card-title">Quản lý ticket</h5>
-                            <p class="card-text">Hiện không có ticket nào để phân công</p>
-                            <button class="btn btn-secondary btn-block" disabled>Chưa có ticket</button>
-                        </div>
+    @can('manage tickets')
+        @if($ticketToAssign)
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-danger">
+                    <div class="card-body text-center">
+                        <i class="fas fa-ticket-alt fa-3x text-danger mb-3"></i>
+                        <h5 class="card-title">Quản lý ticket</h5>
+                        <p class="card-text">Xem và phân công ticket cho nhân viên</p>
+                        <a href="{{ route('admin.tickets') }}" class="btn btn-danger btn-block">
+                            <i class="fas fa-arrow-right"></i> Quản lý ticket
+                        </a>
                     </div>
                 </div>
-            @endif
-        @endcan
+            </div>
+        @else
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-secondary">
+                    <div class="card-body text-center">
+                        <i class="fas fa-ticket-alt fa-3x text-secondary mb-3"></i>
+                        <h5 class="card-title">Quản lý ticket</h5>
+                        <p class="card-text">Hiện không có ticket nào để phân công</p>
+                        <button class="btn btn-secondary btn-block" disabled>Chưa có ticket</button>
+                    </div>
+                </div>
+            </div>
+        @endif
+    @endcan
 
         @can('manage reviews')
         <div class="col-md-4 mb-4">

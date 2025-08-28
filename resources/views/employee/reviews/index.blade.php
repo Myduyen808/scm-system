@@ -15,6 +15,7 @@
             <table class="table table-bordered">
                 <thead>
                     <tr>
+                        <th>Hình ảnh</th>
                         <th>ID</th>
                         <th>Sản phẩm</th>
                         <th>Khách hàng</th>
@@ -27,6 +28,13 @@
                 <tbody>
                     @foreach ($reviews as $review)
                         <tr>
+                            <td>
+                                @if($review->product && $review->product->image)
+                                    <img src="{{ Storage::url($review->product->image) }}" alt="{{ $review->product->name ?? 'N/A' }}" class="img-thumbnail" style="max-width: 50px; max-height: 50px;">
+                                @else
+                                    <img src="{{ asset('images/placeholder.jpg') }}" alt="No image" class="img-thumbnail" style="max-width: 50px; max-height: 50px;">
+                                @endif
+                            </td>
                             <td>{{ $review->id }}</td>
                             <td>{{ $review->product->name ?? 'N/A' }}</td>
                             <td>{{ $review->user->name ?? 'N/A' }}</td>

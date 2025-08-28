@@ -8,6 +8,9 @@
     @if(session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
+    @if(session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
     <table class="table table-striped">
         <thead>
             <tr>
@@ -22,11 +25,11 @@
                 <td>{{ $ticket->subject }}</td>
                 <td>{{ $ticket->status }}</td>
                 <td>
-                <form action="{{ route('employee.replyTicket', $ticket->id) }}" method="POST">
-                    @csrf
-                    @method('PATCH')
-                    <button type="submit" class="btn btn-info btn-sm">Trả lời</button>
-                </form>
+                @if($ticket->status === 'assigned' && $ticket->assigned_to === Auth::id())
+                    <a href="{{ route('employee.tickets.show', $ticket->id) }}" class="btn btn-info btn-sm">Trả lời</a>
+                @else
+                    <span class="text-muted">Không thể trả lời</span>
+                @endif
                 </td>
             </tr>
             @empty
@@ -36,6 +39,6 @@
             @endforelse
         </tbody>
     </table>
-    {{ $tickets->links() }} <!-- Đảm bảo dòng này tồn tại và không bị lỗi cú pháp -->
+    {{ $tickets->links() }}
 </div>
 @endsection

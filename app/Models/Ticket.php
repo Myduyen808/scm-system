@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\TicketReply; 
 
 class Ticket extends Model
 {
@@ -16,5 +17,16 @@ class Ticket extends Model
     public function assignedEmployee()
     {
         return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+        // Quan hệ tới user được assign
+    public function assignedTo()
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+        public function replies()
+    {
+        return $this->hasMany(TicketReply::class);
+        // TicketReply là model chứa các phản hồi, phải tạo trước
     }
 }

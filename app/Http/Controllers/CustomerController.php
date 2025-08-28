@@ -684,20 +684,6 @@ class CustomerController extends Controller
         return view('customer.support.index', compact('tickets'));
     }
 
-    public function replySupport(Request $request, $id)
-    {
-        $ticket = Ticket::where('user_id', Auth::id())->findOrFail($id);
-        $validated = $request->validate(['message' => 'required|string|max:1000']);
-
-        $ticket->replies()->create([
-            'user_id' => Auth::id(),
-            'message' => $validated['message'],
-        ]);
-
-        $ticket->update(['status' => 'pending']); // Chờ admin phân công
-        return redirect()->route('customer.viewTickets')->with('success', 'Phản hồi đã được gửi!');
-    }
-
     public function promotions()
     {
         $promotions = Promotion::where('is_active', true)->orderBy('expiry_date', 'desc')->get();
@@ -966,20 +952,28 @@ public function momoInput($orderId)
             'description' => 'required|string|max:1000',
         ]);
 
-        Ticket::create([
+        $ticket = Ticket::create([
             'user_id' => Auth::id(),
             'subject' => $validated['subject'],
             'description' => $validated['description'],
-            'status' => 'open', // Mặc định open, chờ admin
+            'status' => 'open',
             'assigned_to' => null,
         ]);
+
+        \Log::info('New ticket created: ' . $ticket->id); // Debug
 
         return redirect()->route('customer.viewTickets')->with('success', 'Yêu cầu đã được gửi!');
     }
 
     public function viewTickets()
     {
-        $tickets = Ticket::where('user_id', Auth::id())->paginate(10); // Số lượng mục mỗi trang, có thể điều chỉnh
+        $tickets = Ticket::with('replies')
+            ->where('user_id', Auth::id())
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+
+        \Log::info('Tickets for user ' . Auth::id() . ': ' . $tickets->count()); // Debug
+
         return view('customer.support.index', compact('tickets'));
     }
 
@@ -996,7 +990,7 @@ public function momoInput($orderId)
     // Thêm phương thức để hiển thị thông báo khi nhân viên phản hồi
     public function checkTicketUpdates()
     {
-        $tickets = Ticket::where('user_id', Auth::id())->where('status', 'closed')->get();
+        $tickets = Ticket::where('user_id', Auth::id())->where('status', 'replied')->get();
         foreach ($tickets as $ticket) {
             if (!session()->has("ticket_response_{$ticket->id}")) {
                 session()->flash("ticket_response_{$ticket->id}", 'Ticket của bạn đã được xử lý!');
@@ -1005,5 +999,23 @@ public function momoInput($orderId)
         return redirect()->route('customer.viewTickets');
     }
 
+    public function replySupport(Request $request, $id)
+    {
+        $ticket = Ticket::where('user_id', Auth::id())->findOrFail($id);
+
+        $validated = $request->validate([
+            'message' => 'required|string|max:1000',
+        ]);
+
+        $ticket->replies()->create([
+            'user_id' => Auth::id(),
+            'message' => $validated['message'],
+        ]);
+
+        $ticket->update(['status' => 'customer_replied']); // Thêm trạng thái mới
+
+        return redirect()->route('customer.showSupport', $ticket->id)
+            ->with('success', 'Phản hồi của bạn đã được gửi!');
+    }
 
 }

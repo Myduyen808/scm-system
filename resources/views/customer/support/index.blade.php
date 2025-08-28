@@ -33,7 +33,22 @@
                     @forelse($tickets as $ticket)
                     <tr>
                         <td>{{ $ticket->id }}</td>
-                        <td>{{ $ticket->subject }}</td>
+                        <td>
+                            {{ $ticket->subject }}
+
+                            {{-- Hiển thị tất cả phản hồi của ticket --}}
+                            @if($ticket->replies->count() > 0)
+                                <ul class="mt-1 mb-0">
+                                    @foreach($ticket->replies as $reply)
+                                        <li class="small text-{{ $reply->user_id === Auth::id() ? 'primary' : 'success' }}">
+                                            {{ $reply->user_id === Auth::id() ? 'Bạn:' : 'Nhân viên:' }} {{ $reply->message }}
+                                            <br>
+                                            <small>{{ $reply->created_at->format('d/m/Y H:i') }}</small>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </td>
                         <td>{{ $ticket->status }}</td>
                         <td>{{ $ticket->created_at->format('d/m/Y H:i') }}</td>
                         <td>
@@ -43,9 +58,10 @@
                     @empty
                     <tr><td colspan="5" class="text-center">Chưa có yêu cầu nào.</td></tr>
                     @endforelse
+
                 </tbody>
             </table>
-            {{ $tickets->links() }} <!-- Đảm bảo dòng này tồn tại và không bị lỗi cú pháp -->
+            {{ $tickets->links() }}
         </div>
     </div>
 </div>

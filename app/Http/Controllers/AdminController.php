@@ -40,18 +40,16 @@ class AdminController extends Controller
         $totalProducts = Product::count();
         $totalOrders = Order::count();
         $pendingOrders = Order::where('status', 'pending')->count();
-        $openTickets = SupportTicket::where('status', 'open')->count(); // Cần kiểm tra model
+        $openTickets = Ticket::where('status', 'open')->count(); // Sửa model và kiểm tra
         $totalUsers = User::count();
         $totalRevenue = Order::where('status', 'delivered')->sum('total_amount');
         $activePromotions = Promotion::where('is_active', true)
-                                    ->whereDate('start_date', '<=', now())
-                                    ->whereDate('end_date', '>=', now())
-                                    ->count();
+            ->whereDate('start_date', '<=', now())
+            ->whereDate('end_date', '>=', now())
+            ->count();
 
         // Sửa query $ticketToAssign
-        $ticketToAssign = SupportTicket::whereIn('status', ['open', 'pending'])
-                                    ->whereNull('assigned_to')
-                                    ->first();
+        $ticketToAssign = Ticket::where('status', 'open')->whereNull('assigned_to')->first(); // Đồng bộ với migration
 
         $orderStats = [
             'pending' => Order::where('status', 'pending')->count(),
@@ -727,7 +725,7 @@ class AdminController extends Controller
 
         $ticket->update([
             'assigned_to' => $request->assigned_to,
-            'status' => 'assigned',
+            'status' => 'assigned', // Đảm bảo giá trị là chuỗi hợp lệ
         ]);
 
         return redirect()->route('admin.tickets')->with('success', 'Phân công ticket thành công!');
@@ -736,6 +734,7 @@ class AdminController extends Controller
     public function tickets()
     {
         $tickets = Ticket::with('user', 'assignedTo')
+            ->whereIn('status', ['open', 'pending'])
             ->orderBy('status')
             ->orderBy('created_at', 'desc')
             ->get();

@@ -13,6 +13,7 @@
             <table class="table">
                 <thead>
                     <tr>
+                        <th>Hình ảnh</th>
                         <th>Tên sản phẩm</th>
                         <th>Số lượng</th>
                         <th>Giá</th>
@@ -21,13 +22,20 @@
                 <tbody>
                     @forelse($order->orderItems as $item)
                     <tr>
+                        <td>
+                            @if($item->product && $item->product->image)
+                                <img src="{{ Storage::url($item->product->image) }}" alt="{{ $item->product->name }}" class="img-thumbnail" style="max-width: 100px; max-height: 100px;">
+                            @else
+                                <img src="{{ asset('images/placeholder.jpg') }}" alt="No image" class="img-thumbnail" style="max-width: 100px; max-height: 100px;">
+                            @endif
+                        </td>
                         <td>{{ $item->product->name }}</td>
                         <td>{{ $item->quantity }}</td>
                         <td>₫{{ number_format($item->price, 0, ',', '.') }}</td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="3" class="text-center">Không có sản phẩm</td>
+                        <td colspan="4" class="text-center">Không có sản phẩm</td>
                     </tr>
                     @endforelse
                 </tbody>

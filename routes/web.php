@@ -277,21 +277,30 @@ Route::middleware(['auth', 'role:customer'])->group(function () {
     Route::get('/support/create', [CustomerController::class, 'createSupport'])->name('customer.createSupport');
     Route::post('/support', [CustomerController::class, 'storeSupport'])->name('customer.storeSupport');
     Route::get('/support/{id}', [CustomerController::class, 'showSupport'])->name('customer.showSupport');
+    Route::post('/support/{id}/reply', [CustomerController::class, 'replySupport'])->name('customer.replySupport');
     Route::get('/support/check-updates', [CustomerController::class, 'checkTicketUpdates'])->name('customer.checkTicketUpdates');
-
-    Route::post('/customer/ticket/{id}/reply', [CustomerController::class, 'replySupport'])->name('customer.replySupport');
-    Route::get('/customer/ticket/{id}', [CustomerController::class, 'showSupport'])->name('customer.showSupport');
 });
+
 
 Route::middleware(['auth', 'role:employee'])->group(function () {
-    Route::get('/employee/support', [EmployeeController::class, 'employeeSupport'])->name('employee.support');
-    Route::patch('/employee/ticket/{id}', [EmployeeController::class, 'replyTicket'])->name('employee.replyTicket');
+    // danh sách ticket
+    Route::get('/employee/support', [EmployeeController::class, 'employeeSupport'])
+        ->name('employee.employeeSupport');
+
+    // hiển thị form reply ticket
+    Route::get('/employee/tickets/{id}', [EmployeeController::class, 'showTicket'])
+        ->name('employee.tickets.show');
+
+    // gửi phản hồi
+    Route::patch('/employee/tickets/{id}/reply', [EmployeeController::class, 'replyTicket'])
+        ->name('employee.tickets.reply');
 });
+
+
 
 Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/tickets', [AdminController::class, 'tickets'])->name('admin.tickets');
     Route::post('/tickets/{id}/assign', [AdminController::class, 'assignTicket'])->name('admin.tickets.assign');
-    Route::post('/admin/tickets/assign/{id}', [AdminController::class, 'assignTicket'])->name('admin.tickets.assign');
 });
 
 

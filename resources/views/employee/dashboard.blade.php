@@ -49,7 +49,7 @@
                     <i class="fas fa-headset fa-4x text-info mb-3"></i>
                     <h5 class="card-title">Hỗ trợ khách hàng</h5>
                     <p class="card-text">Trả lời yêu cầu và ticket</p>
-                    <a href="{{ route('employee.support') }}" class="btn btn-info btn-block">
+                    <a href="{{ route('employee.employeeSupport') }}" class="btn btn-info btn-block">
                         <i class="fas fa-arrow-right"></i> Vào quản lý
                     </a>
                 </div>

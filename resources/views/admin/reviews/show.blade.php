@@ -21,6 +21,15 @@
                 <div class="card-body">
                     <h5>Thông tin đánh giá</h5>
                     <dl class="row">
+                        <dt class="col-sm-3">Hình ảnh sản phẩm</dt>
+                        <dd class="col-sm-9">
+                            @if($review->product && $review->product->image)
+                                <img src="{{ Storage::url($review->product->image) }}" alt="{{ $review->product->name }}" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+                            @else
+                                <img src="{{ asset('images/placeholder.jpg') }}" alt="No image" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+                            @endif
+                        </dd>
+
                         <dt class="col-sm-3">Tên sản phẩm</dt>
                         <dd class="col-sm-9">{{ $review->product ? $review->product->name : 'Không xác định' }}</dd>
 
