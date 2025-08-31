@@ -16,6 +16,11 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'phone',
+        'address',
+        'avatar',
+        'is_active',
+        'last_notification_check',
     ];
 
     protected $hidden = [
@@ -26,6 +31,8 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'is_active' => 'boolean',
+        'last_notification_check' => 'datetime',
     ];
 
     // Thêm vào class User
@@ -62,6 +69,21 @@ class User extends Authenticatable
     public function reviews()
     {
         return $this->hasMany(Review::class, 'user_id');
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    public function unreadNotifications()
+    {
+        return $this->hasMany(Notification::class)->where('is_read', false);
+    }
+
+    public function getUnreadNotificationsCount()
+    {
+        return $this->unreadNotifications()->count();
     }
 
 }

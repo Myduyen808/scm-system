@@ -70,23 +70,12 @@
             transform: translateY(20px);
         }
 
-        .fade-in:nth-child(1) {
-            animation-delay: 0.1s;
-        }
-
-        .fade-in:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .fade-in:nth-child(3) {
-            animation-delay: 0.3s;
-        }
+        .fade-in:nth-child(1) { animation-delay: 0.1s; }
+        .fade-in:nth-child(2) { animation-delay: 0.2s; }
+        .fade-in:nth-child(3) { animation-delay: 0.3s; }
 
         @keyframes fadeInUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .cart-badge {
@@ -105,6 +94,14 @@
             position: absolute;
             top: -5px;
             right: -10px;
+        }
+
+        #notification-badge {
+            font-size: 0.75rem;
+            min-width: 18px;
+            height: 18px;
+            line-height: 18px;
+            background-color: #dc3545;
         }
     </style>
     @yield('styles')
@@ -186,14 +183,36 @@
                             @endrole
                         </li>
 
+                        <li class="nav-item position-relative">
+                            <a class="nav-link" href="#" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-bell"></i>
+                                <span id="notification-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display: none;">
+                                    0
+                                </span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationDropdown" style="width: 350px; max-height: 400px; overflow-y: auto;">
+                                <li class="dropdown-header d-flex justify-content-between align-items-center">
+                                    <span>Thông báo</span>
+                                    <button id="mark-all-read" class="btn btn-sm btn-link text-decoration-none p-0">
+                                        Đánh dấu tất cả đã đọc
+                                    </button>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <div id="notification-list">
+                                    <li class="text-center p-3">
+                                        <span class="text-muted">Không có thông báo mới</span>
+                                    </li>
+                                </div>
+                            </ul>
+                        </li>
+
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                                 <i class="fas fa-user"></i> {{ Auth::user()->name }}
                             </a>
                             <ul class="dropdown-menu">
                                 @role('customer')
-                                    <li><a class="dropdown-item" href="{{ route('customer.orders') }}">Đơn hàng của tôi</a>
-                                    </li>
+                                    <li><a class="dropdown-item" href="{{ route('customer.orders') }}">Đơn hàng của tôi</a></li>
                                 @endrole
 
                                 @role('admin')
@@ -208,9 +227,7 @@
                                     <li><a class="dropdown-item" href="{{ route('supplier.dashboard') }}">Dashboard</a></li>
                                 @endrole
 
-                                <li>
-                                    <hr class="dropdown-divider">
-                                </li>
+                                <li><hr class="dropdown-divider"></li>
                                 <li>
                                     <form action="{{ route('logout') }}" method="POST" class="d-inline">
                                         @csrf
@@ -261,8 +278,7 @@
                     <p class="mb-0">Hệ thống quản lý chuỗi cung ứng hiện đại và hiệu quả.</p>
                 </div>
                 <div class="col-md-6 text-md-end">
-                    <p class="mb-0">&copy; 2025 SCM System. Phát triển bởi duyenb2203435@student.ctu.edu.vn
-                        {{ app()->version() }}</p>
+                    <p class="mb-0">&copy; 2025 SCM System. Phát triển bởi duyenb2203435@student.ctu.edu.vn {{ app()->version() }}</p>
                 </div>
             </div>
         </div>
@@ -289,7 +305,7 @@
         function updateCartCount(count) {
             const cartBadge = $('#cart-count');
             if (count > 0) {
-                cartBadge.text(count).show();
+                cartBadge.text(count > 99 ? '99+' : count).show();
             } else {
                 cartBadge.hide();
             }
@@ -322,9 +338,104 @@
                 $(this).html('<i class="fas fa-cart-plus"></i> Thêm vào giỏ');
             });
         });
+
+        // Notification System
+        document.addEventListener('DOMContentLoaded', function() {
+            const notificationBadge = document.getElementById('notification-badge');
+            const notificationList = document.getElementById('notification-list');
+            const markAllReadBtn = document.getElementById('mark-all-read');
+
+            function loadNotifications() {
+                fetch('/notifications/unread', {
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(notifications => {
+                    updateNotificationBadge(notifications.length);
+                    updateNotificationList(notifications);
+                })
+                .catch(error => console.error('Error loading notifications:', error));
+            }
+
+            function updateNotificationBadge(count) {
+                if (count > 0) {
+                    notificationBadge.textContent = count > 99 ? '99+' : count;
+                    notificationBadge.style.display = 'block';
+                } else {
+                    notificationBadge.style.display = 'none';
+                }
+            }
+
+            function updateNotificationList(notifications) {
+                if (notifications.length === 0) {
+                    notificationList.innerHTML = `
+                        <li class="text-center p-3">
+                            <span class="text-muted">Không có thông báo mới</span>
+                        </li>
+                    `;
+                } else {
+                    notificationList.innerHTML = notifications.map(notification => `
+                        <li class="notification-item border-bottom" data-id="${notification.id}">
+                            <div class="p-3 cursor-pointer" onclick="markAsRead(${notification.id})">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1 fw-bold">${notification.title}</h6>
+                                        <p class="mb-1 small text-muted">${notification.message}</p>
+                                        <small class="text-muted">${new Date(notification.created_at).toLocaleString('vi-VN')}</small>
+                                    </div>
+                                    <div class="notification-dot bg-primary rounded-circle" style="width: 8px; height: 8px; margin-top: 8px;"></div>
+                                </div>
+                            </div>
+                        </li>
+                    `).join('');
+                }
+            }
+
+            window.markAsRead = function(notificationId) {
+                fetch(`/notifications/${notificationId}/read`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const notificationItem = document.querySelector(`[data-id="${notificationId}"]`);
+                        if (notificationItem) notificationItem.remove();
+                        loadNotifications();
+                    }
+                })
+                .catch(error => console.error('Error marking notification as read:', error));
+            };
+
+            markAllReadBtn.addEventListener('click', function() {
+                fetch('/notifications/mark-all-read', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        loadNotifications();
+                    }
+                })
+                .catch(error => console.error('Error marking all as read:', error));
+            });
+
+            // Load notifications initially and every 30 seconds
+            loadNotifications();
+            setInterval(loadNotifications, 30000);
+        });
     </script>
 
     @yield('scripts')
 </body>
-
 </html>

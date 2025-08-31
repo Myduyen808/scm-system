@@ -8,7 +8,6 @@
 
     <div class="card fade-in">
         <div class="card-body">
-            <!-- Flash Messages -->
             @if(session('success'))
                 <div class="alert alert-success alert-dismissible fade show" role="alert">
                     {{ session('success') }}
@@ -22,11 +21,18 @@
                 </div>
             @endif
 
+            <p><strong>Hình ảnh:</strong>
+                @if($request->product?->image)
+                    <img src="{{ asset('storage/' . $request->product->image) }}" alt="{{ $request->product->name }}" style="max-width: 100px; max-height: 100px;">
+                @else
+                    <span>Không có hình ảnh</span>
+                @endif
+            </p>
             <p><strong>Sản phẩm:</strong> {{ $request->product?->name ?? 'Không xác định' }}</p>
             <p><strong>Số lượng:</strong> {{ $request->quantity ?? 0 }}</p>
             <p><strong>Trạng thái:</strong> {{ ucfirst($request->status) }}</p>
             <p><strong>Ngày tạo:</strong> {{ $request->created_at?->format('d/m/Y H:i') ?? 'Chưa có' }}</p>
-            <p><strong>Ghi chú từ nhân viên:</strong> {{ $request->note ?? 'Chưa có' }}</p>
+            <p><strong>Ghi chú từ nhân viên:</strong> {{ $request->employee_note ?? 'Chưa có' }}</p>
 
             @if($request->status == 'pending')
                 <form action="{{ route('supplier.requests.process', $request->id) }}" method="POST" class="mt-3">
@@ -45,7 +51,7 @@
                     <button type="submit" class="btn btn-primary btn-sm">Xử lý</button>
                 </form>
             @else
-                <p><strong>Phản hồi từ nhà cung cấp:</strong> {{ $request->employee_feedback ?? 'Chưa có' }}</p>
+                <p><strong>Phản hồi từ nhà cung cấp:</strong> {{ $request->note_from_supplier ?? 'Chưa có' }}</p>
             @endif
 
             <a href="{{ route('supplier.requests') }}" class="btn btn-secondary mt-3"><i class="fas fa-arrow-left"></i> Quay lại</a>

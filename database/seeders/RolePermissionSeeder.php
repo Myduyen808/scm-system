@@ -33,24 +33,24 @@ class RolePermissionSeeder extends Seeder
         ];
 
         foreach (array_unique($permissions) as $permission) {
-            Permission::firstOrCreate(['name' => $permission]);
+            Permission::updateOrCreate(['name' => $permission]);
         }
 
         // Tạo vai trò và gán quyền
-        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $adminRole = Role::updateOrCreate(['name' => 'admin']);
         $adminRole->syncPermissions($permissions); // Admin có tất cả quyền
 
-        $employeeRole = Role::firstOrCreate(['name' => 'employee']);
+        $employeeRole = Role::updateOrCreate(['name' => 'employee']);
         $employeeRole->syncPermissions(['manage inventory', 'manage orders', 'manage promotions', 'support customer', 'view reports','approve products','manage reviews','support customer']);
 
-        $customerRole = Role::firstOrCreate(['name' => 'customer']);
+        $customerRole = Role::updateOrCreate(['name' => 'customer']);
         $customerRole->syncPermissions(['view products', 'place orders','create tickets']);
 
-        $supplierRole = Role::firstOrCreate(['name' => 'supplier']);
+        $supplierRole = Role::updateOrCreate(['name' => 'supplier']);
         $supplierRole->syncPermissions(['update stock']);
 
         // Tạo user và gán role
-        $admin = User::firstOrCreate(
+        $admin = User::updateOrCreate(
             ['email' => 'admin@example.com'],
             [
                 'name' => 'Admin User',
@@ -59,7 +59,7 @@ class RolePermissionSeeder extends Seeder
         );
         $admin->syncRoles(['admin']);
 
-        $employee = User::firstOrCreate(
+        $employee = User::updateOrCreate(
             ['email' => 'employee@example.com'],
             [
                 'name' => 'Employee User',
@@ -68,7 +68,7 @@ class RolePermissionSeeder extends Seeder
         );
         $employee->syncRoles(['employee']);
 
-        $customer = User::firstOrCreate(
+        $customer = User::updateOrCreate(
             ['email' => 'customer@example.com'],
             [
                 'name' => 'Customer User',
@@ -77,7 +77,7 @@ class RolePermissionSeeder extends Seeder
         );
         $customer->syncRoles(['customer']);
 
-        $supplier = User::firstOrCreate(
+        $supplier = User::updateOrCreate(
             ['email' => 'supplier@example.com'],
             [
                 'name' => 'Supplier User',

@@ -12,14 +12,17 @@ use App\Models\Review; // Thêm dòng này
 use App\Models\SupportTicket;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Services\NotificationService; // Thêm service thông báo
 
 
 class EmployeeController extends Controller
 {
-    public function __construct()
+    protected $notificationService;
+    public function __construct(NotificationService $notificationService)
     {
         $this->middleware('auth');
         $this->middleware('role:employee');
+        $this->notificationService = $notificationService; // Tiêm service
     }
 
     public function dashboard()
@@ -245,26 +248,29 @@ class EmployeeController extends Controller
     // Phản hồi yêu cầu (xử lý nhập hàng từ Supplier)
     public function requests()
     {
-        if (!Auth::user()->can('support customer')) {
-            abort(403);
+        if (!Auth::user()->can('manage inventory')) {
+            abort(403, 'Bạn không có quyền truy cập.');
         }
-        $requests = RequestModel::where('status', 'pending')
-            ->whereHas('supplier', function ($query) {
-                $query->where('is_active', true);
-            })
-            ->get();
+        $requests = RequestModel::where('supplier_id', Auth::id())->with(['product', 'supplier'])->paginate(10);
         return view('employee.requests.index', compact('requests'));
     }
 
     public function processRequest(Request $request, $id)
     {
-        if (!Auth::user()->can('support customer')) {
-            abort(403);
+        if (!Auth::user()->can('manage inventory')) {
+            abort(403, 'Bạn không có quyền truy cập.');
         }
-        $req = RequestModel::findOrFail($id);
-        $validated = $request->validate(['status' => 'required|in:accepted,rejected', 'note' => 'nullable|string|max:255']);
-        $req->update($validated);
-        return redirect()->route('employee.requests')->with('success', 'Xử lý yêu cầu thành công!');
+        $requestModel = RequestModel::findOrFail($id);
+        $validated = $request->validate([
+            'status' => 'required|in:accepted,rejected',
+            'note' => 'nullable|string|max:255',
+        ]);
+        $requestModel->update([
+            'status' => $validated['status'],
+            'note_from_supplier' => $validated['note'] ?? $requestModel->note_from_supplier,
+            'updated_at' => now(),
+        ]);
+        return redirect()->route('employee.requests')->with('success', 'Yêu cầu đã được xử lý. Trạng thái: ' . ucfirst($validated['status']));
     }
 
     // Hỗ trợ khách hàng
@@ -389,17 +395,17 @@ class EmployeeController extends Controller
     // Trong EmployeeController.php
     public function showRequest($id)
     {
-        if (!Auth::user()->can('support customer')) {
-            abort(403);
+        if (!Auth::user()->can('manage inventory')) {
+            abort(403, 'Bạn không có quyền truy cập.');
         }
-        $request = RequestModel::findOrFail($id);
+        $request = RequestModel::with(['product', 'supplier'])->findOrFail($id);
         return view('employee.requests.show', compact('request'));
     }
 
     public function sendFeedback(Request $request, $id)
     {
-        if (!Auth::user()->can('support customer')) {
-            abort(403);
+        if (!Auth::user()->can('manage inventory')) {
+            abort(403, 'Bạn không có quyền truy cập.');
         }
         $validated = $request->validate([
             'feedback' => 'required|string|max:1000',
@@ -408,14 +414,14 @@ class EmployeeController extends Controller
         $requestModel = RequestModel::findOrFail($id);
         $requestModel->update([
             'status' => $validated['status'],
-            'employee_feedback' => $validated['feedback'],
+            'note_from_supplier' => $validated['feedback'], // Thống nhất dùng note_from_supplier
             'updated_at' => now(),
         ]);
-        // Gửi thông báo (có thể tích hợp email hoặc thông báo trong hệ thống)
-        return redirect()->route('employee.requests')->with('success', 'Phản hồi đã được gửi thành công!');
+        // Thông báo cho nhân viên
+        return redirect()->route('employee.requests')->with('success', 'Phản hồi đã được gửi thành công! Trạng thái yêu cầu đã cập nhật.');
     }
 
-    public function showStockRequestForm()
+public function showStockRequestForm()
     {
         if (!Auth::user()->can('manage inventory')) {
             abort(403);
@@ -424,8 +430,10 @@ class EmployeeController extends Controller
             ->where('stock_quantity', '<', 10)
             ->with('supplier')
             ->get();
-        return view('employee.dashboard-stock-request', compact('lowStockProducts'));
+        $suppliers = \App\Models\User::role('supplier')->get(); // Lấy danh sách supplier
+        return view('employee.dashboard-stock-request', compact('lowStockProducts', 'suppliers'));
     }
+
     public function sendStockRequest(Request $request)
     {
         if (!Auth::user()->can('manage inventory')) {
@@ -439,31 +447,29 @@ class EmployeeController extends Controller
             'note' => 'nullable|string|max:500',
         ]);
 
-        $product = Product::findOrFail($validated['product_id']);
-        if ($product->supplier_id && $product->supplier_id != $validated['supplier_id']) {
-            return redirect()->back()->withErrors(['supplier_id' => 'Nhà cung cấp không khớp với sản phẩm.'])->withInput();
-        }
-
         $requestData = [
             'supplier_id' => $validated['supplier_id'],
+            'employee_id' => Auth::id(),
             'product_id' => $validated['product_id'],
             'quantity' => $validated['quantity'],
-            'description' => 'Yêu cầu nhập hàng', // Giữ description làm tiêu đề chung
-            'employee_note' => $validated['note'] ?? '', // Lưu ghi chú từ nhân viên
+            'description' => 'Yêu cầu nhập hàng',
+            'employee_note' => $validated['note'] ?? '',
             'status' => 'pending',
             'created_at' => now(),
             'updated_at' => now(),
+            'request_number' => 'REQ-' . str_pad(RequestModel::max('id') + 1, 3, '0', STR_PAD_LEFT),
         ];
 
         try {
+            \DB::beginTransaction();
             $requestModel = RequestModel::create($requestData);
-            \Log::info('Request created successfully:', ['id' => $requestModel->id, 'supplier_id' => $requestModel->supplier_id]);
+            \DB::commit();
+            return redirect()->route('employee.requests')->with('success', 'Yêu cầu nhập hàng đã được gửi thành công!')->with('request_id', $requestModel->id);
         } catch (\Exception $e) {
+            \DB::rollBack();
             \Log::error('Error creating request: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Có lỗi xảy ra khi gửi yêu cầu.');
+            return redirect()->back()->with('error', 'Có lỗi xảy ra khi gửi yêu cầu: ' . $e->getMessage())->withInput();
         }
-
-        return redirect()->route('employee.dashboard')->with('success', 'Yêu cầu nhập hàng đã được gửi thành công!');
     }
 
     public function employeeSupport()
@@ -474,14 +480,14 @@ class EmployeeController extends Controller
         return view('employee.support.index', compact('tickets'));
     }
 
-public function showTicket($id)
-{
-    $ticket = Ticket::findOrFail($id);
-    if ($ticket->assigned_to !== Auth::id()) {
-        return redirect()->route('employee.employeeSupport')->with('error', 'Bạn không được phép xem ticket này!');
+    public function showTicket($id)
+    {
+        $ticket = Ticket::findOrFail($id);
+        if ($ticket->assigned_to !== Auth::id()) {
+            return redirect()->route('employee.employeeSupport')->with('error', 'Bạn không được phép xem ticket này!');
+        }
+        return view('employee.support.reply', compact('ticket')); // tên view đúng
     }
-    return view('employee.support.reply', compact('ticket')); // tên view đúng
-}
 
 public function replyTicket(Request $request, $id)
 {
@@ -503,7 +509,7 @@ public function replyTicket(Request $request, $id)
 }
 
 
-public function respondToRequest(Request $request, $id)
+    public function respondToRequest(Request $request, $id)
     {
         if (!Auth::user()->can('manage supplier requests')) {
             abort(403);
@@ -524,6 +530,11 @@ public function respondToRequest(Request $request, $id)
             'status' => $validated['status'],
             'updated_at' => now(),
         ]);
+
+        // Gửi thông báo cho nhân viên
+        if ($requestModel->employee_id) {
+            $this->notificationService->notifyEmployeeRequestResponse($requestModel, $requestModel->employee_id);
+        }
 
         return redirect()->route('supplier.requests')->with('success', 'Phản hồi đã được gửi thành công!');
     }

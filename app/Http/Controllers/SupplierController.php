@@ -10,13 +10,16 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use App\Models\Inventory;
+use App\Services\NotificationService;
 
 class SupplierController extends Controller
 {
-    public function __construct()
+    protected $notificationService;
+    public function __construct(NotificationService $notificationService)
     {
         $this->middleware('auth');
         $this->middleware('role:supplier');
+        $this->notificationService = $notificationService;
     }
 
     // Dashboard
@@ -231,28 +234,14 @@ class SupplierController extends Controller
     // Danh sách yêu cầu nhập hàng
     public function requests(Request $request)
     {
-        // Debug: kiểm tra user
-        \Log::info('Current Supplier ID: ' . Auth::id());
-        \Log::info('User Role: ' . Auth::user()->roles->pluck('name'));
-
-        // Tạo query trước
         $query = RequestModel::where('supplier_id', Auth::id());
-
-        // Debug: kiểm tra query
-        \Log::info('Raw SQL: ' . $query->toSql());
-        \Log::info('Bindings: ', $query->getBindings());
-
-        // Áp dụng search hoặc filter nếu có
         if ($search = $request->input('search')) {
             $query->where('request_number', 'like', "%{$search}%");
         }
         if ($status = $request->input('status')) {
             $query->where('status', $status);
         }
-
-        // Load relation product và phân trang
-        $requests = $query->with('product')->orderBy('created_at', 'desc')->paginate(10);
-
+        $requests = $query->with(['product', 'supplier'])->orderBy('created_at', 'desc')->paginate(10);
         return view('supplier.requests.index', compact('requests'));
     }
 
@@ -345,12 +334,31 @@ class SupplierController extends Controller
 
     public function processRequest(Request $request, $id)
     {
-        $req = RequestModel::where('supplier_id', Auth::id())->findOrFail($id);
+        $requestModel = RequestModel::where('supplier_id', Auth::id())->findOrFail($id);
+
         $validated = $request->validate([
             'status' => 'required|in:accepted,rejected',
             'note' => 'nullable|string|max:255'
         ]);
-        $req->update($validated + ['updated_at' => now()]); // Cập nhật thời gian
-        return redirect()->route('supplier.requests')->with('success', 'Xử lý yêu cầu thành công!');
+
+        \DB::beginTransaction();
+        try {
+            $requestModel->update(array_merge($validated, ['updated_at' => now(), 'note_from_supplier' => $validated['note']])); // Cập nhật note_from_supplier
+
+            // Lấy employee_id từ request
+            $employeeId = $requestModel->employee_id;
+
+            // Gửi thông báo cho nhân viên nếu có employee_id
+            if ($employeeId) {
+                $this->notificationService->notifyEmployeeRequestResponse($requestModel, $employeeId);
+            }
+
+            \DB::commit();
+            return redirect()->route('supplier.requests')->with('success', 'Xử lý yêu cầu thành công!');
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            \Log::error('Lỗi xử lý yêu cầu: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Có lỗi xảy ra khi xử lý yêu cầu.');
+        }
     }
 }

@@ -1,78 +1,95 @@
 @extends('layouts.app')
 
-@section('title', 'Phản Hồi Yêu Cầu Nhập Hàng')
+@section('title', 'Yêu Cầu Nhập Hàng - Nhân Viên')
 
 @section('content')
 <div class="container">
-    <h1><i class="fas fa-truck-loading"></i> Phản Hồi Yêu Cầu Nhập Hàng</h1>
-
+    <h1><i class="fas fa-truck-loading"></i> Yêu Cầu Nhập Hàng</h1>
     @if (session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <ul>
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
-    <!-- Filters -->
-    <div class="mb-3">
-        <form method="GET" action="{{ route('employee.requests') }}" class="d-flex">
-            <input type="text" name="search" class="form-control me-2" placeholder="Tìm mã yêu cầu..." value="{{ request('search') }}">
-            <select name="status" class="form-select me-2">
-                <option value="">Tất cả trạng thái</option>
-                <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Chờ xử lý</option>
-                <option value="accepted" {{ request('status') == 'accepted' ? 'selected' : '' }}>Đã chấp nhận</option>
-                <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Đã từ chối</option>
+    <form action="{{ route('employee.send.stock.request') }}" method="POST">
+        @csrf
+        <div class="mb-3">
+            <label for="product_id" class="form-label">Sản phẩm cần nhập</label>
+            <select name="product_id" class="form-control" id="product_id" required>
+                <option value="">Chọn sản phẩm</option>
+                @foreach ($lowStockProducts as $product)
+                    <option value="{{ $product->id }}" data-supplier-id="{{ $product->supplier_id ?? '' }}"
+                            {{ old('product_id') == $product->id ? 'selected' : '' }}>
+                        {{ $product->name }} (Tồn: {{ $product->stock_quantity }}, Nhà cung cấp: {{ $product->supplier->name ?? 'Chưa rõ' }})
+                    </option>
+                @endforeach
             </select>
-            <button type="submit" class="btn btn-outline-primary">Lọc</button>
-        </form>
-    </div>
-
-    <!-- Table -->
-    <div class="table-responsive">
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Mã yêu cầu</th>
-                    <th>Sản phẩm</th>
-                    <th>Số lượng</th>
-                    <th>Trạng thái</th>
-                    <th>Ngày tạo</th>
-                    <th>Ghi chú từ nhân viên</th>
-                    <th>Phản hồi từ nhà cung cấp</th>
-                    <th>Thao tác</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($requests as $request)
-                    <tr>
-                        <td>{{ $request->id }}</td>
-                        <td>{{ $request->product->name ?? 'Chưa rõ' }}</td>
-                        <td>{{ $request->quantity }}</td>
-                        <td>{{ ucfirst($request->status) }}</td>
-                        <td>{{ $request->created_at->format('d/m/Y H:i') }}</td>
-                        <td>{{ $request->employee_note ?: 'Chưa có' }}</td>
-                        <td>{{ $request->note_from_supplier ?? 'Chưa có' }}</td>
-                        <td>
-                            <a href="{{ route('employee.requests.show', $request->id) }}" class="btn btn-info btn-sm">Xem Chi Tiết</a>
-                            @if ($request->status === 'pending')
-                                <form action="{{ route('employee.process.request', $request->id) }}" method="POST" style="display:inline; margin-left: 5px;">
-                                    @csrf
-                                    @method('PATCH')
-                                    <select name="status" class="form-select form-select-sm d-inline-block w-auto">
-                                        <option value="accepted">Chấp nhận</option>
-                                        <option value="rejected">Từ chối</option>
-                                    </select>
-                                    <button type="submit" class="btn btn-primary btn-sm" style="margin-left: 5px;">Xử lý</button>
-                                </form>
-                            @endif
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="8" class="text-center">Không có yêu cầu nào.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-
-    {{ $requests->appends(request()->query())->links() }}
+            @error('product_id')
+                <div class="text-danger">{{ $message }}</div>
+            @enderror
+        </div>
+        <div class="mb-3">
+            <label for="quantity" class="form-label">Số lượng nhập</label>
+            <input type="number" name="quantity" class="form-control" id="quantity" min="1" value="{{ old('quantity') }}" required>
+            @error('quantity')
+                <div class="text-danger">{{ $message }}</div>
+            @enderror
+        </div>
+        <div class="mb-3">
+            <label for="supplier_id" class="form-label">Nhà cung cấp</label>
+            <select name="supplier_id" class="form-control" id="supplier_id" required>
+                <option value="">Chọn nhà cung cấp</option>
+                @foreach ($lowStockProducts->unique('supplier_id')->pluck('supplier') as $supplier)
+                    @if ($supplier)
+                        <option value="{{ $supplier->id }}" {{ old('supplier_id') == $supplier->id ? 'selected' : '' }}>
+                            {{ $supplier->name }}
+                        </option>
+                    @endif
+                @endforeach
+            </select>
+            @error('supplier_id')
+                <div class="text-danger">{{ $message }}</div>
+            @enderror
+        </div>
+        <div class="mb-3">
+            <label for="note" class="form-label">Ghi chú</label>
+            <textarea name="note" class="form-control" id="note" rows="3">{{ old('note') }}</textarea>
+            @error('note')
+                <div class="text-danger">{{ $message }}</div>
+            @enderror
+        </div>
+        <button type="submit" class="btn btn-primary">Gửi yêu cầu</button>
+        <a href="{{ route('employee.dashboard') }}" class="btn btn-secondary">Quay lại</a>
+    </form>
 </div>
 @endsection
+
+@push('scripts')
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    $('#product_id').on('change', function() {
+        const supplierId = $(this).find(':selected').data('supplier-id');
+        if (supplierId) {
+            $('#supplier_id').val(supplierId);
+        }
+        $('#supplier_id').trigger('change'); // Cập nhật select
+    }).trigger('change'); // Trigger khi tải trang nếu có old data
+
+    $('#supplier_id').on('change', function() {
+        const selectedProductSupplierId = $('#product_id').find(':selected').data('supplier-id');
+        if (selectedProductSupplierId && $(this).val() !== selectedProductSupplierId) {
+            alert('Nhà cung cấp không khớp với sản phẩm. Vui lòng chọn nhà cung cấp đúng.');
+            $(this).val(selectedProductSupplierId); // Reset về supplier_id của sản phẩm
+        }
+    });
+});
+</script>
+@endpush

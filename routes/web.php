@@ -154,6 +154,8 @@ Route::middleware(['auth', 'role:employee'])->prefix('employee')->group(function
     Route::post('/orders/{order}/cancel', [EmployeeController::class, 'cancelOrder'])->name('employee.orders.cancel');
     Route::get('/requests', [EmployeeController::class, 'requests'])->name('employee.requests');
     Route::post('/requests/{request}/process', [EmployeeController::class, 'processRequest'])->name('employee.requests.process');
+    Route::post('/requests/{request}/process', [EmployeeController::class, 'processRequest'])->name('employee.process.request');
+
     Route::get('/support', [EmployeeController::class, 'support'])->name('employee.support');
     Route::get('/support/{ticket}/reply', [EmployeeController::class, 'replySupportTicket'])->name('employee.support.reply');
     Route::post('/support/{ticket}/reply', [EmployeeController::class, 'storeSupportReply'])->name('employee.support.store-reply');
@@ -166,6 +168,8 @@ Route::middleware(['auth', 'role:employee'])->prefix('employee')->group(function
     // ... (các route khác)
     Route::get('/stock-request', [EmployeeController::class, 'showStockRequestForm'])->name('employee.stock.request');
     Route::post('/stock-request', [EmployeeController::class, 'sendStockRequest'])->name('employee.stock.request.send');
+
+    Route::post('/employee/stock-request', [EmployeeController::class, 'sendStockRequest'])->name('employee.send.stock.request');
 });
 
 // Routes cho khách hàng (customer)
@@ -243,6 +247,8 @@ Route::middleware(['auth', 'role:supplier'])->group(function () {
 
 
     Route::post('/supplier/orders/{id}/status', [SupplierController::class, 'updateOrderStatus'])->name('supplier.orders.updateStatus');
+
+
 });
 
 
@@ -307,3 +313,16 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
 Route::middleware(['auth', 'role:supplier'])->group(function () {
     Route::patch('/supplier/requests/{id}/respond', [SupplierController::class, 'respondToRequest'])->name('supplier.respond.request');
 });
+
+
+
+use App\Http\Controllers\NotificationController;
+Route::middleware(['auth'])->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllRead');
+    Route::get('/notifications/unread', [NotificationController::class, 'getUnreadNotifications'])->name('notifications.unread');
+    Route::get('/notifications/count', [NotificationController::class, 'getUnreadCount'])->name('notifications.count');
+
+});
+
