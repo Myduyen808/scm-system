@@ -59,6 +59,9 @@
                             @error('role') <div class="invalid-feedback">{{ $message }}</div> @endif
                         </div>
                         <div class="mt-3 d-flex justify-content-end">
+                            <a href="{{ route('admin.users') }}" class="btn btn-outline-secondary me-2">
+                                <i class="fas fa-times"></i> Hủy
+                            </a>
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save"></i> Cập Nhật
                             </button>

@@ -64,7 +64,27 @@
                         </td>
                         <td>{{ $product->name }}</td>
                         <td>{{ $product->sku }}</td>
-                        <td>₫{{ number_format($product->current_price ?? 0, 0, ',', '.') }}</td>
+                        <td>
+                        @php
+                        $regularPrice = $product->regular_price ?? 0;
+                        $salePrice = $product->sale_price;
+
+                        $hasValidSale = !is_null($salePrice) && $salePrice > 0 && $salePrice < $regularPrice;
+                        $discountPercentage = $hasValidSale ? round((($regularPrice - $salePrice)/$regularPrice)*100) : 0;
+                        @endphp
+
+                        @if($hasValidSale)
+                            @if($salePrice < $regularPrice * 0.1)
+                                {{-- chỉ hiển thị cảnh báo nếu bạn muốn --}}
+                                <span class="text-danger">Giá sale bất hợp lý! Kiểm tra lại.</span><br>
+                            @endif
+                            <del>₫{{ number_format($regularPrice, 0, ',', '.') }}</del><br>
+                            <span class="text-success">₫{{ number_format($salePrice, 0, ',', '.') }}</span>
+                            (Giảm {{ $discountPercentage }}%)
+                        @else
+                            ₫{{ number_format($regularPrice, 0, ',', '.') }}
+                        @endif
+                        </td>
                         <td>
                             <form action="{{ route('supplier.products.updateStock', $product->id) }}" method="POST" class="d-flex" onsubmit="return confirm('Cập nhật tồn kho?');">
                                 @csrf

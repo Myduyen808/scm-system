@@ -34,6 +34,7 @@
             <table class="table table-striped">
                 <thead>
                     <tr>
+                        <th>Hình ảnh</th> <!-- Thêm cột mới -->
                         <th>Mã đơn hàng</th>
                         <th>Khách hàng</th>
                         <th>Tổng tiền</th>
@@ -45,6 +46,13 @@
                 <tbody>
                     @forelse($orders as $order)
                     <tr>
+                        <td>
+                            @if($order->orderItems->first()->product->image)
+                                <img src="{{ asset('storage/' . $order->orderItems->first()->product->image) }}" alt="{{ $order->orderItems->first()->product->name }}" style="width: 50px; height: 50px; object-fit: cover;" class="img-thumbnail">
+                            @else
+                                <span>Không có hình ảnh</span>
+                            @endif
+                        </td>
                         <td>{{ $order->order_number }}</td>
                         <td>{{ $order->customer->name ?? 'Không xác định' }}</td>
                         <td>₫{{ number_format($order->total_amount ?? 0, 0, ',', '.') }}</td>
@@ -55,7 +63,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="6" class="text-center">Chưa có đơn hàng</td></tr>
+                    <tr><td colspan="7" class="text-center">Chưa có đơn hàng</td></tr>
                     @endforelse
                 </tbody>
             </table>

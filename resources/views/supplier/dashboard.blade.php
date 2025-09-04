@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Supplier Dashboard')
+@section('title', 'Dashboard của ' . ($supplier->name ?? 'Nhà cung cấp'))
 
 @section('content')
 <div class="container">
     <div class="row">
         <div class="col-md-12">
             <h1 class="mb-4">
-                <i class="fas fa-truck"></i> Supplier Dashboard
+                <i class="fas fa-truck"></i> Dashboard của {{ $supplier->name ?? 'Nhà cung cấp' }}
             </h1>
         </div>
     </div>
@@ -86,20 +86,20 @@
         </div>
     </div>
     <div class="col-md-4 mb-4 fade-in">
-    <div class="card bg-warning text-white">
-        <div class="card-body">
-            <div class="d-flex justify-content-between">
-                <div>
-                    <h4>{{ $pendingApprovalCount }}</h4>
-                    <p class="mb-0">Sản phẩm chờ duyệt</p>
-                </div>
-                <div class="align-self-center">
-                    <i class="fas fa-hourglass-half fa-2x"></i>
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>{{ $pendingApprovalCount ?? 0 }}</h4>
+                        <p class="mb-0">Sản phẩm chờ duyệt</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-hourglass-half fa-2x"></i>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
     <!-- Supplier Statistics -->
     <div class="row">
@@ -108,7 +108,7 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h4>{{ $totalProducts }}</h4>
+                            <h4>{{ $totalProducts ?? 0 }}</h4>
                             <p class="mb-0">Sản phẩm cung cấp</p>
                         </div>
                         <div class="align-self-center">
@@ -124,7 +124,7 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h4>{{ $pendingOrders }}</h4>
+                            <h4>{{ $pendingOrders ?? 0 }}</h4>
                             <p class="mb-0">Đơn hàng chờ xử lý</p>
                         </div>
                         <div class="align-self-center">
@@ -152,14 +152,15 @@
         </div>
     </div>
 
-<!-- Chart for Monthly Revenue -->
-<div class="row mt-4">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Doanh thu theo tháng</h5>
-                <div style="height: 250px;">
-                    <canvas id="revenueChart"></canvas>
+    <!-- Chart for Monthly Revenue -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Doanh thu theo tháng</h5>
+                    <div style="height: 250px;">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -174,10 +175,10 @@
     new Chart(ctxRevenue, {
         type: 'line',
         data: {
-            labels: @json($labels), // Sử dụng nhãn từ controller
+            labels: @json($labels ?? []), // Sử dụng nhãn từ controller, mặc định rỗng nếu không có
             datasets: [{
                 label: 'Doanh thu (VND)',
-                data: @json($data), // Sử dụng dữ liệu doanh thu từ controller
+                data: @json($revenueData ?? []), // Sử dụng dữ liệu doanh thu từ controller, mặc định rỗng
                 borderColor: '#36A2EB',
                 backgroundColor: 'rgba(54, 162, 235, 0.2)',
                 fill: true,

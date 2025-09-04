@@ -5,7 +5,7 @@
 @section('content')
 <div class="container">
     <h1 class="mb-4"><i class="fas fa-shopping-cart"></i> Chi Tiết Đơn Hàng #{{ $order->order_number }}</h1>
-        <!-- Flash Messages -->
+    <!-- Flash Messages -->
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             {{ session('success') }}
@@ -35,6 +35,7 @@
             <table class="table table-striped">
                 <thead>
                     <tr>
+                        <th>Hình ảnh</th> <!-- Thêm cột mới -->
                         <th>Tên sản phẩm</th>
                         <th>Số lượng</th>
                         <th>Giá</th>
@@ -45,6 +46,13 @@
                     @foreach($order->orderItems as $item)
                         @if($item->product->supplier_id == Auth::id())
                         <tr>
+                            <td>
+                                @if($item->product->image)
+                                    <img src="{{ asset('storage/' . $item->product->image) }}" alt="{{ $item->product->name }}" style="width: 50px; height: 50px; object-fit: cover;" class="img-thumbnail">
+                                @else
+                                    <span>Không có hình ảnh</span>
+                                @endif
+                            </td>
                             <td>{{ $item->product->name }}</td>
                             <td>{{ $item->quantity }}</td>
                             <td>₫{{ number_format($item->price, 0, ',', '.') }}</td>

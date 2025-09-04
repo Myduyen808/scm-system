@@ -92,13 +92,17 @@ class SupplierController extends Controller
         return view('supplier.products.create');
     }
 
+// Sửa method storeProduct
     public function storeProduct(Request $request)
     {
+        $regularPrice = (float) $request->input('regular_price', 0);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'regular_price' => 'required|numeric|min:0',
-            'sale_price' => 'nullable|numeric|min:0',
+            'sale_price' => 'nullable|numeric|min:0|max:' . $regularPrice,
+            'sale_percent' => 'nullable|numeric|min:0|max:100',
             'sku' => 'required|string|unique:products',
             'stock_quantity' => 'required|integer|min:0',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -106,9 +110,28 @@ class SupplierController extends Controller
         ]);
 
         $validated['supplier_id'] = Auth::id();
+
         if ($request->hasFile('image')) {
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
+
+        // Xử lý sale_price theo VND hoặc %
+        $salePriceInput = $request->filled('sale_price') ? (float) $request->input('sale_price') : null;
+        $salePercent = (float) $request->input('sale_percent', 0);
+
+        if ($salePercent > 0) {
+            $salePrice = $regularPrice * (1 - $salePercent / 100);
+        } else {
+            $salePrice = $salePriceInput;
+        }
+
+        if ($salePrice !== null && $salePrice >= $regularPrice) {
+            return back()->with('error', 'Giá sale phải nhỏ hơn giá thường!')->withInput();
+        }
+
+        $validated['sale_price'] = $salePrice;
+        $validated['sale_percent'] = $salePercent;
+        $validated['current_price'] = $salePrice && $salePrice > 0 ? $salePrice : $regularPrice;
 
         \DB::beginTransaction();
         try {
@@ -125,26 +148,22 @@ class SupplierController extends Controller
             return redirect()->route('supplier.products')->with('success', 'Sản phẩm đã được thêm thành công!');
         } catch (\Exception $e) {
             \DB::rollBack();
-            return back()->with('error', 'Có lỗi xảy ra khi thêm sản phẩm: ' . $e->getMessage());
+            return back()->with('error', 'Có lỗi xảy ra khi thêm sản phẩm: ' . $e->getMessage())->withInput();
         }
     }
 
-    // Sửa sản phẩm
-    public function editProduct($id)
-    {
-        $product = Product::where('supplier_id', Auth::id())->findOrFail($id);
-        return view('supplier.products.edit', compact('product'));
-    }
-
+// Sửa method updateProduct
     public function updateProduct(Request $request, $id)
     {
         $product = Product::where('supplier_id', Auth::id())->findOrFail($id);
+        $regularPrice = (float) $request->input('regular_price', 0);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'regular_price' => 'required|numeric|min:0',
-            'sale_price' => 'nullable|numeric|min:0',
+            'sale_price' => 'nullable|numeric|min:0|max:' . $regularPrice,
+            'sale_percent' => 'nullable|numeric|min:0|max:100',
             'sku' => 'required|string|unique:products,sku,' . $id,
             'stock_quantity' => 'required|integer|min:0',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -158,6 +177,24 @@ class SupplierController extends Controller
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
 
+        // Xử lý sale_price theo VND hoặc %
+        $salePriceInput = $request->filled('sale_price') ? (float) $request->input('sale_price') : null;
+        $salePercent = (float) $request->input('sale_percent', 0);
+
+        if ($salePercent > 0) {
+            $salePrice = $regularPrice * (1 - $salePercent / 100);
+        } else {
+            $salePrice = $salePriceInput;
+        }
+
+        if ($salePrice !== null && $salePrice >= $regularPrice) {
+            return back()->with('error', 'Giá sale phải nhỏ hơn giá thường!')->withInput();
+        }
+
+        $validated['sale_price'] = $salePrice;
+        $validated['sale_percent'] = $salePercent;
+        $validated['current_price'] = $salePrice && $salePrice > 0 ? $salePrice : $regularPrice;
+
         \DB::beginTransaction();
         try {
             $product->update($validated);
@@ -166,7 +203,7 @@ class SupplierController extends Controller
                 ['product_id' => $product->id],
                 ['stock' => $validated['stock_quantity'], 'created_at' => now(), 'updated_at' => now()]
             );
-            if ($inventory->wasRecentlyCreated === false) {
+            if (!$inventory->wasRecentlyCreated) {
                 $inventory->update(['stock' => $validated['stock_quantity'], 'updated_at' => now()]);
             }
 
@@ -174,8 +211,16 @@ class SupplierController extends Controller
             return redirect()->route('supplier.products')->with('success', 'Sản phẩm đã được cập nhật thành công!');
         } catch (\Exception $e) {
             \DB::rollBack();
-            return back()->with('error', 'Có lỗi xảy ra khi cập nhật sản phẩm: ' . $e->getMessage());
+            return back()->with('error', 'Có lỗi xảy ra khi cập nhật sản phẩm: ' . $e->getMessage())->withInput();
         }
+    }
+
+
+    // Sửa sản phẩm
+    public function editProduct($id)
+    {
+        $product = Product::where('supplier_id', Auth::id())->findOrFail($id);
+        return view('supplier.products.edit', compact('product'));
     }
 
     // Xóa sản phẩm

@@ -27,7 +27,8 @@
                                name="search"
                                class="form-control"
                                placeholder="Tìm kiếm tên hoặc email..."
-                               value="{{ request('search') }}">
+                               value="{{ request('search') }}"
+                               autocomplete="off">
                     </div>
                     <div class="col-md-2">
                         <button type="submit" class="btn btn-outline-primary">
@@ -66,6 +67,7 @@
                                 @if($roles->isNotEmpty())
                                     <select class="form-select form-select-sm user-role"
                                             data-user-id="{{ $user->id }}"
+                                            data-current-role="{{ $user->roles->pluck('name')->first() ?? '' }}"
                                             style="width: 150px;">
                                         @foreach($roles as $role)
                                             <option value="{{ $role->name }}"
@@ -147,10 +149,20 @@
 @section('scripts')
 <script>
 $(document).ready(function() {
-    // Update user role
+    // Update user role with confirmation
     $('.user-role').on('change', function() {
-        const userId = $(this).data('user-id');
-        const newRole = $(this).val();
+        confirmRoleChange(this);
+    });
+
+    function confirmRoleChange(select) {
+        const userId = $(select).data('user-id');
+        const newRole = $(select).val();
+        const currentRole = $(select).data('current-role');
+
+        if (newRole !== currentRole && !confirm(`Bạn có chắc muốn thay đổi vai trò sang ${newRole}?`)) {
+            $(select).val(currentRole);
+            return;
+        }
 
         $.ajax({
             url: `/admin/users/${userId}/role`,
@@ -161,12 +173,14 @@ $(document).ready(function() {
             },
             success: function(response) {
                 showToast('success', response.message);
+                $(select).data('current-role', newRole);
             },
             error: function() {
                 showToast('error', 'Có lỗi xảy ra khi cập nhật vai trò!');
+                $(select).val(currentRole);
             }
         });
-    });
+    }
 
     // Delete user
     $('.delete-user').on('click', function() {
@@ -177,7 +191,7 @@ $(document).ready(function() {
         $('#deleteUserModal').modal('show');
     });
 
-    // Toast notification function
+    // Toast notification function (Bootstrap 5)
     function showToast(type, message) {
         const toast = $(`
             <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0" role="alert">
@@ -194,7 +208,8 @@ $(document).ready(function() {
             $('body').append('<div class="toast-container position-fixed top-0 end-0 p-3"></div>');
         }
         $('.toast-container').append(toast);
-        toast.toast('show');
+        const bsToast = new bootstrap.Toast(toast[0]);
+        bsToast.show();
         setTimeout(() => toast.remove(), 5000);
     }
 });
