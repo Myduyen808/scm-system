@@ -340,100 +340,106 @@
         });
 
         // Notification System
-        document.addEventListener('DOMContentLoaded', function() {
-            const notificationBadge = document.getElementById('notification-badge');
-            const notificationList = document.getElementById('notification-list');
-            const markAllReadBtn = document.getElementById('mark-all-read');
+    document.addEventListener('DOMContentLoaded', function() {
+    const notificationBadge = document.getElementById('notification-badge');
+    const notificationList = document.getElementById('notification-list');
+    const markAllReadBtn = document.getElementById('mark-all-read');
 
-            function loadNotifications() {
-                fetch('/notifications/unread', {
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(notifications => {
-                    updateNotificationBadge(notifications.length);
-                    updateNotificationList(notifications);
-                })
-                .catch(error => console.error('Error loading notifications:', error));
+    function loadNotifications() {
+        fetch('/notifications/unread', { // Đảm bảo URL khớp với route
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
+        .then(notifications => {
+            updateNotificationBadge(notifications.length);
+            updateNotificationList(notifications);
+        })
+        .catch(error => console.error('Error loading notifications:', error));
+    }
 
-            function updateNotificationBadge(count) {
-                if (count > 0) {
-                    notificationBadge.textContent = count > 99 ? '99+' : count;
-                    notificationBadge.style.display = 'block';
-                } else {
-                    notificationBadge.style.display = 'none';
-                }
-            }
+    function updateNotificationBadge(count) {
+        if (count > 0) {
+            notificationBadge.textContent = count > 99 ? '99+' : count;
+            notificationBadge.style.display = 'block';
+        } else {
+            notificationBadge.style.display = 'none';
+        }
+    }
 
-            function updateNotificationList(notifications) {
-                if (notifications.length === 0) {
-                    notificationList.innerHTML = `
-                        <li class="text-center p-3">
-                            <span class="text-muted">Không có thông báo mới</span>
-                        </li>
-                    `;
-                } else {
-                    notificationList.innerHTML = notifications.map(notification => `
-                        <li class="notification-item border-bottom" data-id="${notification.id}">
-                            <div class="p-3 cursor-pointer" onclick="markAsRead(${notification.id})">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div class="flex-grow-1">
-                                        <h6 class="mb-1 fw-bold">${notification.title}</h6>
-                                        <p class="mb-1 small text-muted">${notification.message}</p>
-                                        <small class="text-muted">${new Date(notification.created_at).toLocaleString('vi-VN')}</small>
-                                    </div>
-                                    <div class="notification-dot bg-primary rounded-circle" style="width: 8px; height: 8px; margin-top: 8px;"></div>
-                                </div>
+    function updateNotificationList(notifications) {
+        if (notifications.length === 0) {
+            notificationList.innerHTML = `
+                <li class="text-center p-3">
+                    <span class="text-muted">Không có thông báo mới</span>
+                </li>
+            `;
+        } else {
+            notificationList.innerHTML = notifications.map(notification => `
+                <li class="notification-item border-bottom" data-id="${notification.id}">
+                    <div class="p-3 cursor-pointer" onclick="markAsRead(${notification.id})">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">${notification.title}</h6>
+                                <p class="mb-1 small text-muted">${notification.message}</p>
+                                <small class="text-muted">${new Date(notification.created_at).toLocaleString('vi-VN')}</small>
                             </div>
-                        </li>
-                    `).join('');
-                }
+                            <div class="notification-dot bg-primary rounded-circle" style="width: 8px; height: 8px; margin-top: 8px;"></div>
+                        </div>
+                    </div>
+                </li>
+            `).join('');
+        }
+    }
+
+    window.markAsRead = function(notificationId) {
+        fetch(`/notifications/${notificationId}/read`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const notificationItem = document.querySelector(`[data-id="${notificationId}"]`);
+                if (notificationItem) notificationItem.remove();
+                loadNotifications();
+            }
+        })
+        .catch(error => console.error('Error marking notification as read:', error));
+    };
 
-            window.markAsRead = function(notificationId) {
-                fetch(`/notifications/${notificationId}/read`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const notificationItem = document.querySelector(`[data-id="${notificationId}"]`);
-                        if (notificationItem) notificationItem.remove();
-                        loadNotifications();
-                    }
-                })
-                .catch(error => console.error('Error marking notification as read:', error));
-            };
+    markAllReadBtn.addEventListener('click', function() {
+        fetch('/notifications/mark-all-read', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadNotifications();
+            }
+        })
+        .catch(error => console.error('Error marking all as read:', error));
+    });
 
-            markAllReadBtn.addEventListener('click', function() {
-                fetch('/notifications/mark-all-read', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        loadNotifications();
-                    }
-                })
-                .catch(error => console.error('Error marking all as read:', error));
-            });
-
-            // Load notifications initially and every 30 seconds
-            loadNotifications();
-            setInterval(loadNotifications, 30000);
-        });
+    // Load notifications initially and every 30 seconds
+    loadNotifications();
+    setInterval(loadNotifications, 30000);
+});
     </script>
 
     @yield('scripts')

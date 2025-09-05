@@ -16,6 +16,7 @@
             <tr>
                 <th>Chủ đề</th>
                 <th>Trạng thái</th>
+                <th>Phản hồi gần nhất</th>
                 <th>Thao tác</th>
             </tr>
         </thead>
@@ -25,16 +26,25 @@
                 <td>{{ $ticket->subject }}</td>
                 <td>{{ $ticket->status }}</td>
                 <td>
-                @if($ticket->status === 'assigned' && $ticket->assigned_to === Auth::id())
-                    <a href="{{ route('employee.tickets.show', $ticket->id) }}" class="btn btn-info btn-sm">Trả lời</a>
-                @else
-                    <span class="text-muted">Không thể trả lời</span>
-                @endif
+                    @if($ticket->replies->count() > 0)
+                        {{ $ticket->replies->last()->message }}<br>
+                        <small>{{ $ticket->replies->last()->created_at->format('d/m/Y H:i') }}</small>
+                        ({{ $ticket->replies->last()->user_id === Auth::id() ? 'Bạn' : 'Khách hàng' }})
+                    @else
+                        Chưa có phản hồi
+                    @endif
+                </td>
+                <td>
+                    @if(in_array($ticket->status, ['assigned', 'replied', 'customer_replied']) && $ticket->assigned_to === Auth::id())
+                        <a href="{{ route('employee.tickets.show', $ticket->id) }}" class="btn btn-info btn-sm">Xem</a>
+                    @else
+                        <span class="text-muted">Không thể thao tác</span>
+                    @endif
                 </td>
             </tr>
             @empty
             <tr>
-                <td colspan="3" class="text-center">Không có ticket</td>
+                <td colspan="4" class="text-center">Không có ticket</td>
             </tr>
             @endforelse
         </tbody>

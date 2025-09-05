@@ -21,6 +21,7 @@
             <table class="table table-striped">
                 <thead>
                     <tr>
+                        <th>Hình ảnh</th> <!-- Thêm cột mới -->
                         <th>Mã đơn hàng</th>
                         <th>Tổng tiền</th>
                         <th>Trạng thái</th>
@@ -31,6 +32,21 @@
                 <tbody>
                     @forelse($orders as $order)
                     <tr>
+                        <td>
+                            @if($order->orderItems->isNotEmpty())
+                                @php
+                                    $firstItem = $order->orderItems->first();
+                                    $productImage = $firstItem->product->image ?? null;
+                                @endphp
+                                @if($productImage)
+                                    <img src="{{ asset('storage/' . $productImage) }}" alt="{{ $firstItem->product->name ?? 'Sản phẩm' }}" style="width: 50px; height: 50px; object-fit: cover;" class="img-thumbnail">
+                                @else
+                                    <span>Không có hình ảnh</span>
+                                @endif
+                            @else
+                                <span>Không có sản phẩm</span>
+                            @endif
+                        </td>
                         <td>{{ $order->order_number }}</td>
                         <td>₫{{ number_format($order->total_amount, 0, ',', '.') }}</td>
                         <td>{{ $order->status }}</td>
@@ -41,7 +57,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="5" class="text-center">Chưa có đơn hàng.</td></tr>
+                    <tr><td colspan="6" class="text-center">Chưa có đơn hàng.</td></tr>
                     @endforelse
                 </tbody>
             </table>

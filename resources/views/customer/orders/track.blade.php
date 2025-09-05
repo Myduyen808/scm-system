@@ -24,7 +24,7 @@
                     <div class="card-body">
                         <h5 class="card-title">Thông tin đơn hàng #{{ $order->order_number }}</h5>
                         <p><strong>Tổng tiền:</strong> ₫{{ number_format($order->total_amount, 0, ',', '.') }}</p>
-                        <p><strong>Trạng thái:</strong> {{ $order->shippingStatusText }}</p> <!-- Sửa ở đây -->
+                        <p><strong>Trạng thái:</strong> {{ $order->shippingStatusText }}</p>
                         <p><strong>Ngày đặt:</strong> {{ $order->created_at->format('d/m/Y H:i') }}</p>
                         @if($order->delivered_at)
                             <p><strong>Ngày giao:</strong> {{ $order->delivered_at->format('d/m/Y H:i') }}</p>
@@ -35,6 +35,38 @@
                         @if($order->shipping_note)
                             <p><strong>Ghi chú giao hàng:</strong> {{ $order->shipping_note }}</p>
                         @endif
+
+                        <h4 class="mt-4">Sản phẩm</h4>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Hình ảnh</th> <!-- Thêm cột mới -->
+                                    <th>Tên sản phẩm</th>
+                                    <th>Số lượng</th>
+                                    <th>Giá</th>
+                                    <th>Tổng</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($order->orderItems as $item)
+                                <tr>
+                                    <td>
+                                        @if($item->product && $item->product->image)
+                                            <img src="{{ asset('storage/' . $item->product->image) }}" alt="{{ $item->product->name ?? 'Sản phẩm' }}" style="width: 50px; height: 50px; object-fit: cover;" class="img-thumbnail">
+                                        @else
+                                            <span>Không có hình ảnh</span>
+                                        @endif
+                                    </td>
+                                    <td>{{ $item->product->name ?? 'Không xác định' }}</td>
+                                    <td>{{ $item->quantity }}</td>
+                                    <td>₫{{ number_format($item->price, 0, ',', '.') }}</td>
+                                    <td>₫{{ number_format($item->quantity * $item->price, 0, ',', '.') }}</td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="5" class="text-center">Không có sản phẩm.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
 
                         <div class="progress mt-3">
                             <div class="progress-bar" role="progressbar" style="width: {{

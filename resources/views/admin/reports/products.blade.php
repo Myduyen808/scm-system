@@ -30,6 +30,7 @@
                         <table class="table table-hover">
                             <thead class="table-dark">
                                 <tr>
+                                    <th>Hình ảnh</th> <!-- Thêm cột mới -->
                                     <th>Tên sản phẩm</th>
                                     <th>Số lượng bán</th>
                                     <th>SKU</th>
@@ -38,13 +39,20 @@
                             <tbody>
                                 @forelse($topProducts as $product)
                                 <tr>
+                                    <td>
+                                        @if($product->image)
+                                            <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" style="width: 50px; height: 50px; object-fit: cover;" class="img-thumbnail">
+                                        @else
+                                            <span>Không có hình ảnh</span>
+                                        @endif
+                                    </td>
                                     <td>{{ $product->name }}</td>
                                     <td>{{ $product->order_items_count }}</td>
                                     <td>{{ $product->sku }}</td>
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="3" class="text-center text-muted">Không có dữ liệu</td>
+                                    <td colspan="4" class="text-center text-muted">Không có dữ liệu</td>
                                 </tr>
                                 @endforelse
                             </tbody>

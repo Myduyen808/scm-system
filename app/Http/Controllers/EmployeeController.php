@@ -289,7 +289,7 @@ class EmployeeController extends Controller
         if ($ticket->assigned_to !== Auth::id() || !in_array($ticket->status, ['assigned', 'replied'])) {
             return redirect()->route('employee.employeeSupport')->with('error', 'Bạn không được phép trả lời ticket này!');
         }
-        return view('employee.support.reply', compact('ticket'));
+        return view('employee.support.show', compact('ticket'));
     }
 
     public function storeSupportReply(Request $request, $ticketId)
@@ -475,8 +475,11 @@ public function showStockRequestForm()
     public function employeeSupport()
     {
         $tickets = Ticket::where('assigned_to', Auth::id())
-            ->where('status', 'assigned')
+            ->whereIn('status', ['assigned', 'replied', 'customer_replied']) // Bao gồm các trạng thái chat
+            ->with('replies') // Tải lịch sử phản hồi
+            ->orderBy('updated_at', 'desc')
             ->paginate(10);
+
         return view('employee.support.index', compact('tickets'));
     }
 
@@ -486,28 +489,40 @@ public function showStockRequestForm()
         if ($ticket->assigned_to !== Auth::id()) {
             return redirect()->route('employee.employeeSupport')->with('error', 'Bạn không được phép xem ticket này!');
         }
-        return view('employee.support.reply', compact('ticket')); // tên view đúng
+        return view('employee.support.show', compact('ticket'));
     }
 
-public function replyTicket(Request $request, $id)
-{
-    $ticket = Ticket::findOrFail($id);
-    if ($ticket->assigned_to !== Auth::id() || !in_array($ticket->status, ['assigned', 'replied'])) {
-        return redirect()->route('employee.employeeSupport')->with('error', 'Bạn không được phép trả lời ticket này!');
-    }
+    public function replyTicket(Request $request, $id)
+    {
+        $ticket = Ticket::findOrFail($id);
+        if ($ticket->assigned_to !== Auth::id() || $ticket->status === 'closed') {
+            return redirect()->route('employee.employeeSupport')->with('error', 'Bạn không được phép trả lời ticket này!');
+        }
 
-    $validated = $request->validate(['message' => 'required|string|max:1000']);
+        $validated = $request->validate(['message' => 'required|string|max:1000']);
 
-    $ticket->replies()->create([
-        'user_id' => Auth::id(),
-        'message' => $validated['message'],
-    ]);
+        $ticket->replies()->create([
+            'user_id' => Auth::id(),
+            'message' => $validated['message'],
+        ]);
 
-    $ticket->update(['status' => 'replied']);
+        $ticket->update(['status' => 'replied']);
 
-    return redirect()->route('employee.employeeSupport')->with('success', 'Phản hồi đã được gửi!');
+        // Gửi thông báo cho khách hàng
+        if ($ticket->user_id) {
+            $this->notificationService->createNotification(
+                $ticket->user_id,
+                'ticket_employee_reply',
+                'Nhân viên phản hồi ticket',
+                "Nhân viên đã phản hồi ticket #{$ticket->id}: {$validated['message']}",
+                ['ticket_id' => $ticket->id],
+                $ticket->id,
+                'Ticket'
+            );
+        }
+
+        return redirect()->route('employee.tickets.show', $ticket->id)->with('success', 'Phản hồi đã được gửi!');
 }
-
 
     public function respondToRequest(Request $request, $id)
     {

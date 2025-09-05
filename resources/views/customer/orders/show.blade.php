@@ -24,6 +24,8 @@
                 <p><strong>Trạng thái:</strong> <span class="badge bg-{{ $order->status === 'processing' ? 'primary' : 'secondary' }}">{{ $order->status }}</span></p>
                 <p><strong>Trạng thái thanh toán:</strong> <span class="badge bg-{{ $order->payment_status === 'paid' ? 'success' : 'warning' }}">{{ $order->payment_status }}</span></p>
                 <p><strong>Tổng tiền:</strong> ₫{{ number_format($order->total_amount, 0, ',', '.') }}</p>
+                <p><strong>Người nhận:</strong> {{ $order->shipping_name ?? 'Chưa cập nhật' }}</p>
+                <p><strong>Số điện thoại:</strong> {{ $order->shipping_phone ?? 'Chưa cập nhật' }}</p>
                 <p><strong>Địa chỉ giao hàng:</strong> {{ $order->shipping_address ?? 'Chưa cập nhật' }}</p>
                 <p><strong>Ngày đặt:</strong> {{ $order->created_at->format('d/m/Y H:i') }}</p>
             </div>

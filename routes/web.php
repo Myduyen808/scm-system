@@ -300,6 +300,8 @@ Route::middleware(['auth', 'role:employee'])->group(function () {
     // gửi phản hồi
     Route::patch('/employee/tickets/{id}/reply', [EmployeeController::class, 'replyTicket'])
         ->name('employee.tickets.reply');
+    Route::get('/employee/tickets/{id}', [EmployeeController::class, 'showTicket'])->name('employee.tickets.show');
+
 });
 
 
@@ -323,6 +325,6 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllRead');
     Route::get('/notifications/unread', [NotificationController::class, 'getUnreadNotifications'])->name('notifications.unread');
     Route::get('/notifications/count', [NotificationController::class, 'getUnreadCount'])->name('notifications.count');
-
+    Route::get('/notifications/unread', [NotificationController::class, 'getUnreadNotifications'])->name('notifications.unread')->middleware('auth');
 });
 

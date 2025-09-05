@@ -69,7 +69,9 @@
                 @else
                     <select name="address_id" id="address_id" class="form-control" required>
                         @foreach (Auth::user()->addresses as $address)
-                            <option value="{{ $address->id }}">{{ $address->name }} - {{ $address->address_line }}</option>
+                            <option value="{{ $address->id }}" {{ $address->is_default ? 'selected' : '' }}>
+                                {{ $address->name }} ({{ $address->phone }}) - {{ $address->address_line }}
+                            </option>
                         @endforeach
                     </select>
                 @endif

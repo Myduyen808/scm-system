@@ -22,14 +22,17 @@ use App\Services\PaypalDirectService;
 use App\Services\MoMoDirectService; // Thay đổi này
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use App\Services\NotificationService;
 
 
 class CustomerController extends Controller
 {
-    public function __construct()
+    protected $notificationService;
+    public function __construct(NotificationService $notificationService)
     {
         $this->middleware('auth');
         $this->middleware('role:customer');
+        $this->notificationService = $notificationService; // Tiêm service
     }
 
     public function home()
@@ -250,6 +253,20 @@ class CustomerController extends Controller
         $total = $cartItems->sum(function ($item) {
             return $item->product->current_price * $item->quantity;
         });
+            // Tạo Order
+
+        $order = Order::create([
+            'order_number'     => 'ORD-' . time(),
+            'customer_id'      => Auth::id(),
+            'total_amount'     => $total,
+            'shipping_name'    => $address->name,         // đảm bảo $address->name có giá trị
+            'shipping_phone'   => $address->phone,        // đảm bảo $address->phone có giá trị
+            'shipping_address' => $address->address_line,
+            'payment_method'   => 'stripe',
+            'status'           => 'processing',
+            'payment_status'   => 'pending',
+        ]);
+
 
         $exchangeRate = 26351;
         $totalInUsd = $total / $exchangeRate;
@@ -284,26 +301,39 @@ class CustomerController extends Controller
             ],
         ]);
 
-        return view('customer.checkout.confirm', compact('cartItems', 'total', 'address', 'paymentIntent'));
+        return view('customer.checkout.confirm', compact('cartItems', 'total', 'order', 'paymentIntent'));
     }
 
 
 
     public function processPayment(Request $request, PaypalDirectService $paypal)
     {
+        $request->validate([
+            'address_id' => 'required|exists:addresses,id,user_id,' . Auth::id()
+        ]);
+
+        // Lấy thông tin địa chỉ từ bảng addresses
+        $address = Address::where('user_id', Auth::id())
+                        ->findOrFail($request->input('address_id'));
+
         $totalVnd = $request->input('total');
         $exchangeRate = 26351;
         $totalUsd = $totalVnd / $exchangeRate;
 
+        // Tạo Order với thông tin từ Address
         $order = Order::create([
             'order_number'     => 'ORD-' . time(),
             'customer_id'      => Auth::id(),
             'total_amount'     => $totalVnd,
-            'shipping_address' => $request->input('address'),
+            'shipping_name'    => $address->name,        // lấy từ Address
+            'shipping_phone'   => $address->phone,       // lấy từ Address
+            'shipping_address' => $address->address_line,
             'payment_method'   => 'paypal',
             'status'           => 'pending',
+            'payment_status'   => 'pending',
         ]);
 
+        // Tạo đơn PayPal
         $paypalOrder = $paypal->createOrder(
             $totalUsd,
             route('customer.paypal.success', ['order' => $order->id]),
@@ -318,6 +348,7 @@ class CustomerController extends Controller
 
         return back()->with('error', 'Không tìm thấy link PayPal.');
     }
+
 
 
 
@@ -680,7 +711,13 @@ class CustomerController extends Controller
 
     public function support()
     {
-        $tickets = SupportTicket::where('user_id', Auth::id())->orderBy('created_at', 'desc')->paginate(10);
+        $tickets = Ticket::where('user_id', Auth::id())
+            ->with('replies') // Tải quan hệ replies từ ticket_replies
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+
+        \Log::info('Tickets for user ' . Auth::id() . ': ' . $tickets->count()); // Debug
+
         return view('customer.support.index', compact('tickets'));
     }
 
@@ -980,11 +1017,9 @@ public function momoInput($orderId)
     public function showSupport($id)
     {
         $ticket = Ticket::where('user_id', Auth::id())->findOrFail($id);
-        if ($ticket->status === 'replied') {
-            $reply = $ticket->replies()->latest()->first();
-            return view('customer.support.show', compact('ticket', 'reply'))->with('success', 'Nhân viên đã phản hồi yêu cầu của bạn!');
-        }
-        return view('customer.support.show', compact('ticket'));
+        // Không kiểm tra trạng thái 'replied' để luôn cho phép xem và phản hồi
+        $reply = $ticket->replies()->latest()->first();
+        return view('customer.support.show', compact('ticket', 'reply'));
     }
 
     // Thêm phương thức để hiển thị thông báo khi nhân viên phản hồi
@@ -998,7 +1033,6 @@ public function momoInput($orderId)
         }
         return redirect()->route('customer.viewTickets');
     }
-
     public function replySupport(Request $request, $id)
     {
         $ticket = Ticket::where('user_id', Auth::id())->findOrFail($id);
@@ -1012,7 +1046,25 @@ public function momoInput($orderId)
             'message' => $validated['message'],
         ]);
 
-        $ticket->update(['status' => 'customer_replied']); // Thêm trạng thái mới
+        // Kiểm tra và xử lý null cho $ticket->user
+        $userName = $ticket->user ? $ticket->user->name : 'Không xác định';
+        if ($ticket->assigned_to) {
+            $this->notificationService->createNotification(
+                $ticket->assigned_to,
+                'ticket_customer_reply',
+                'Khách hàng phản hồi ticket',
+                "Khách hàng {$userName} đã phản hồi ticket #{$ticket->id}: {$validated['message']}",
+                ['ticket_id' => $ticket->id],
+                $ticket->id,
+                'Ticket'
+            );
+        }
+
+        if ($ticket->status === 'replied') {
+            $ticket->update(['status' => 'customer_replied']);
+        } elseif (!in_array($ticket->status, ['closed', 'in_progress'])) {
+            $ticket->update(['status' => 'customer_replied']);
+        }
 
         return redirect()->route('customer.showSupport', $ticket->id)
             ->with('success', 'Phản hồi của bạn đã được gửi!');

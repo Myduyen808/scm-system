@@ -30,6 +30,8 @@
                         <h4 class="card-title">Thông tin đơn hàng</h4>
                         <hr>
                         <p><strong>Tổng tiền:</strong> {{ number_format($total, 0, ',', '.') }} đ</p>
+                        <p><strong>Người nhận:</strong> {{ $address->name }}</p>
+                        <p><strong>Số điện thoại:</strong> {{ $address->phone }}</p>
                         <p><strong>Địa chỉ giao hàng:</strong> {{ $address->address_line }}</p>
 
                         <h5 class="mt-3">Sản phẩm trong giỏ hàng</h5>
@@ -81,7 +83,7 @@
                                 'price' => $item->product->current_price ?? 0,
                             ];
                         })->toArray()) }}">
-                        <input type="hidden" name="address" value="{{ $address->address_line }}">
+                        <input type="hidden" name="address" value="{{ $address->name }} - {{ $address->phone }} - {{ $address->address_line }}">
                         <input type="hidden" name="total" value="{{ $total }}">
                         <button type="submit" class="btn btn-primary btn-lg w-100" id="pay-button-paypal">
                             <i class="fab fa-paypal"></i> Thanh toán với PayPal
@@ -98,7 +100,7 @@
                                 'price' => $item->product->current_price ?? 0,
                             ];
                         })->toArray()) }}">
-                        <input type="hidden" name="address" value="{{ $address->address_line }}">
+                        <input type="hidden" name="address" value="{{ $address->name }} - {{ $address->phone }} - {{ $address->address_line }}">
                         <input type="hidden" name="total" value="{{ $total }}">
                         <button type="submit" class="btn btn-primary btn-lg w-100" id="pay-button-momo">
                             <i class="fab fa-momo"></i> Thanh toán với MoMo (Mock)

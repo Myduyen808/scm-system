@@ -12,7 +12,9 @@ class Order extends Model
     protected $fillable = [
         'order_number', 'customer_id', 'total_amount', 'status',
         'shipping_address', 'payment_method', 'payment_status',
-        'shipping_status', 'tracking_number', 'delivered_at', 'shipping_note'
+        'shipping_status', 'tracking_number', 'delivered_at', 'shipping_note',
+        'shipping_name',   //  thêm dòng này
+        'shipping_phone',  //  thêm dòng này
     ];
 
     protected $casts = [
