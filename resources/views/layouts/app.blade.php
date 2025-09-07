@@ -12,6 +12,21 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- SVG Icons -->
+    <svg style="display: none;">
+        <symbol id="icon_heart" viewBox="0 0 20 20">
+            <g clip-path="url(#clip0_6_54)">
+                <path
+                    d="M18.3932 3.30806C16.218 1.13348 12.6795 1.13348 10.5049 3.30806L9.99983 3.81285L9.49504 3.30806C7.32046 1.13319 3.78163 1.13319 1.60706 3.30806C-0.523361 5.43848 -0.537195 8.81542 1.57498 11.1634C3.50142 13.3041 9.18304 17.929 9.4241 18.1248C9.58775 18.2578 9.78467 18.3226 9.9804 18.3226C9.98688 18.3226 9.99335 18.3226 9.99953 18.3223C10.202 18.3317 10.406 18.2622 10.575 18.1248C10.816 17.929 16.4982 13.3041 18.4253 11.1631C20.5371 8.81542 20.5233 5.43848 18.3932 3.30806ZM17.1125 9.98188C15.6105 11.6505 11.4818 15.0919 9.99953 16.3131C8.51724 15.0922 4.38944 11.6511 2.88773 9.98218C1.41427 8.34448 1.40044 6.01214 2.85564 4.55693C3.59885 3.81402 4.57488 3.44227 5.5509 3.44227C6.52693 3.44227 7.50295 3.81373 8.24616 4.55693L9.3564 5.66718C9.48856 5.79934 9.65516 5.87822 9.82999 5.90589C10.1137 5.96682 10.4216 5.88764 10.6424 5.66747L11.7532 4.55693C13.2399 3.07082 15.6582 3.07111 17.144 4.55693C18.5992 6.01214 18.5854 8.34448 17.1125 9.98188Z"
+                    fill="currentColor" />
+            </g>
+            <defs>
+                <clipPath id="clip0_6_54">
+                    <rect width="20" height="20" fill="white" />
+                </clipPath>
+            </defs>
+        </symbol>
+    </svg>
     <style>
         :root {
             --primary-color: #f59e0b;
@@ -103,6 +118,39 @@
             line-height: 18px;
             background-color: #dc3545;
         }
+
+        .favorite-btn {
+            color: #ff4444;
+            transition: color 0.3s ease, transform 0.3s ease;
+        }
+
+        .favorite-btn.active {
+            color: #ff0000;
+            transform: scale(1.2);
+        }
+
+        .favorite-btn:hover {
+            color: #ff6666;
+            transform: scale(1.1);
+        }
+
+        .favorite-badge {
+            display: inline-block;
+            min-width: 18px;
+            padding: 0 6px;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 18px;
+            color: #fff;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            background-color: #ff4444;
+            border-radius: 10px;
+            position: absolute;
+            top: -5px;
+            right: -10px;
+        }
     </style>
     @yield('styles')
 </head>
@@ -111,7 +159,7 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm">
         <div class="container">
-            <a class="navbar-brand" href="{{ route('home') }}">
+            <a class="nav-brand" href="{{ route('home') }}">
                 <i class="fas fa-cube"></i> SCM System
             </a>
 
@@ -178,6 +226,21 @@
                                     @endphp
                                     @if ($cartCount > 0)
                                         <span class="cart-badge" id="cart-count">{{ $cartCount }}</span>
+                                    @endif
+                                </a>
+                            @endrole
+                        </li>
+
+                        <!-- Thêm icon Yêu thích -->
+                        <li class="nav-item position-relative">
+                            @role('customer')
+                                <a class="nav-link" href="{{ route('customer.favorites') }}" title="Yêu thích">
+                                    <svg class="icon_heart" style="width: 20px; height: 20px;"><use href="#icon_heart"></use></svg>
+                                    @php
+                                        $favoriteCount = Auth::user()->favorites()->count();
+                                    @endphp
+                                    @if ($favoriteCount > 0)
+                                        <span class="favorite-badge" id="favorite-count">{{ $favoriteCount }}</span>
                                     @endif
                                 </a>
                             @endrole
@@ -339,107 +402,174 @@
             });
         });
 
-        // Notification System
-    document.addEventListener('DOMContentLoaded', function() {
-    const notificationBadge = document.getElementById('notification-badge');
-    const notificationList = document.getElementById('notification-list');
-    const markAllReadBtn = document.getElementById('mark-all-read');
+    // Toggle Favorite
+    $('.favorite-btn').click(function(e) {
+        e.preventDefault();
+        const productId = $(this).data('product-id');
+        const isFavorite = $(this).hasClass('active');
+        const $button = $(this);
 
-    function loadNotifications() {
-        fetch('/notifications/unread', { // Đảm bảo URL khớp với route
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
+        $.ajax({
+            url: `/customer/favorites/toggle/${productId}`,
+            type: 'POST',
+            data: {
+                _token: $('meta[name="csrf-token"]').attr('content')
+            },
+            success: function(response) {
+                if (response.success) {
+                    $button.toggleClass('active');
+                    showToast(response.message, response.success ? 'success' : 'info');
+                    if (response.success) {
+                        // Gửi thông báo
+                        fetch('/notifications/create', {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                user_id: {{ Auth::id() }},
+                                type: 'favorite_added',
+                                title: 'Sản phẩm yêu thích',
+                                message: `Bạn đã yêu thích sản phẩm "${response.product_name}".`,
+                                data: { product_id: productId },
+                                related_id: productId,
+                                related_type: 'Product'
+                            })
+                        }).then(() => loadNotifications());
+                    }
+                    // Chuyển hướng đến trang danh sách yêu thích sau 2 giây (để hiển thị toast)
+                    setTimeout(() => {
+                        window.location.href = "{{ route('customer.favorites') }}";
+                    }, 2000); // 2000ms = 2 giây
+                }
+            },
+            error: function() {
+                showToast('Có lỗi xảy ra khi cập nhật yêu thích!', 'error');
             }
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Network response was not ok');
-            return response.json();
-        })
-        .then(notifications => {
-            updateNotificationBadge(notifications.length);
-            updateNotificationList(notifications);
-        })
-        .catch(error => console.error('Error loading notifications:', error));
-    }
-
-    function updateNotificationBadge(count) {
-        if (count > 0) {
-            notificationBadge.textContent = count > 99 ? '99+' : count;
-            notificationBadge.style.display = 'block';
-        } else {
-            notificationBadge.style.display = 'none';
-        }
-    }
-
-    function updateNotificationList(notifications) {
-        if (notifications.length === 0) {
-            notificationList.innerHTML = `
-                <li class="text-center p-3">
-                    <span class="text-muted">Không có thông báo mới</span>
-                </li>
-            `;
-        } else {
-            notificationList.innerHTML = notifications.map(notification => `
-                <li class="notification-item border-bottom" data-id="${notification.id}">
-                    <div class="p-3 cursor-pointer" onclick="markAsRead(${notification.id})">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1 fw-bold">${notification.title}</h6>
-                                <p class="mb-1 small text-muted">${notification.message}</p>
-                                <small class="text-muted">${new Date(notification.created_at).toLocaleString('vi-VN')}</small>
-                            </div>
-                            <div class="notification-dot bg-primary rounded-circle" style="width: 8px; height: 8px; margin-top: 8px;"></div>
-                        </div>
-                    </div>
-                </li>
-            `).join('');
-        }
-    }
-
-    window.markAsRead = function(notificationId) {
-        fetch(`/notifications/${notificationId}/read`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const notificationItem = document.querySelector(`[data-id="${notificationId}"]`);
-                if (notificationItem) notificationItem.remove();
-                loadNotifications();
-            }
-        })
-        .catch(error => console.error('Error marking notification as read:', error));
-    };
-
-    markAllReadBtn.addEventListener('click', function() {
-        fetch('/notifications/mark-all-read', {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                loadNotifications();
-            }
-        })
-        .catch(error => console.error('Error marking all as read:', error));
+        });
     });
 
-    // Load notifications initially and every 30 seconds
-    loadNotifications();
-    setInterval(loadNotifications, 30000);
-});
+        // Notification System
+        document.addEventListener('DOMContentLoaded', function() {
+            const notificationBadge = document.getElementById('notification-badge');
+            const notificationList = document.getElementById('notification-list');
+            const markAllReadBtn = document.getElementById('mark-all-read');
+
+            function loadNotifications() {
+                fetch('/notifications/unread', {
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then(notifications => {
+                    updateNotificationBadge(notifications.length);
+                    updateNotificationList(notifications);
+                })
+                .catch(error => console.error('Error loading notifications:', error));
+            }
+
+            function updateNotificationBadge(count) {
+                if (count > 0) {
+                    notificationBadge.textContent = count > 99 ? '99+' : count;
+                    notificationBadge.style.display = 'block';
+                } else {
+                    notificationBadge.style.display = 'none';
+                }
+            }
+
+            function updateNotificationList(notifications) {
+                if (notifications.length === 0) {
+                    notificationList.innerHTML = `
+                        <li class="text-center p-3">
+                            <span class="text-muted">Không có thông báo mới</span>
+                        </li>
+                    `;
+                } else {
+                    notificationList.innerHTML = notifications.map(notification => `
+                        <li class="notification-item border-bottom" data-id="${notification.id}">
+                            <div class="p-3 cursor-pointer" onclick="markAsRead(${notification.id})">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1 fw-bold">${notification.title}</h6>
+                                        <p class="mb-1 small text-muted">${notification.message}</p>
+                                        <small class="text-muted">${new Date(notification.created_at).toLocaleString('vi-VN')}</small>
+                                    </div>
+                                    <div class="notification-dot bg-primary rounded-circle" style="width: 8px; height: 8px; margin-top: 8px;"></div>
+                                </div>
+                            </div>
+                        </li>
+                    `).join('');
+                }
+            }
+
+            window.markAsRead = function(notificationId) {
+                fetch(`/notifications/${notificationId}/read`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const notificationItem = document.querySelector(`[data-id="${notificationId}"]`);
+                        if (notificationItem) notificationItem.remove();
+                        loadNotifications();
+                    }
+                })
+                .catch(error => console.error('Error marking notification as read:', error));
+            };
+
+            markAllReadBtn.addEventListener('click', function() {
+                fetch('/notifications/mark-all-read', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        loadNotifications();
+                    }
+                })
+                .catch(error => console.error('Error marking all as read:', error));
+            });
+
+            // Load notifications initially and every 30 seconds
+            loadNotifications();
+            setInterval(loadNotifications, 30000);
+        });
+
+        // Toast notification function
+        function showToast(message, type = 'success') {
+            const toast = $(`
+                <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0 position-fixed top-0 end-0 m-3" role="alert" style="z-index: 1050;">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <i class="fas fa-${type === 'success' ? 'check' : 'exclamation-triangle'} me-2"></i>
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `);
+
+            $('body').append(toast);
+            toast.toast({ delay: 3000 }).toast('show');
+        }
     </script>
 
     @yield('scripts')

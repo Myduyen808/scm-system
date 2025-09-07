@@ -10,6 +10,24 @@
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
 
+    @forelse ($notifications as $notification)
+        <div class="alert alert-info">
+            {{ $notification->message }}
+            <a href="{{ route('employee.reviews.show', $notification->related_id) }}" class="btn btn-sm btn-primary">Xem ngay</a>
+            <form action="{{ route('notifications.mark-as-read', $notification->id) }}" method="POST" style="display:inline;" class="d-none">
+                @csrf
+                @method('PATCH')
+            </form>
+        </div>
+    @empty
+        @if (session('new_review_notification'))
+            <div class="alert alert-info">
+                {{ session('new_review_notification') }}
+                <a href="{{ route('employee.reviews') }}" class="btn btn-sm btn-primary ml-2">Xem ngay</a>
+            </div>
+        @endif
+    @endforelse
+
     <div class="card">
         <div class="card-body">
             <table class="table table-bordered">

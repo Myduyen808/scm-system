@@ -251,9 +251,20 @@ class EmployeeController extends Controller
         if (!Auth::user()->can('manage inventory')) {
             abort(403, 'Bạn không có quyền truy cập.');
         }
-        $requests = RequestModel::where('supplier_id', Auth::id())->with(['product', 'supplier'])->paginate(10);
-        return view('employee.requests.index', compact('requests'));
+
+        // Lấy các Request
+        $requests = RequestModel::where('supplier_id', Auth::id())
+            ->with(['product', 'supplier'])
+            ->paginate(10);
+
+        // Lấy các sản phẩm tồn kho thấp (ví dụ stock < 10)
+        $lowStockProducts = Product::where('stock_quantity', '<', 10)
+            ->get();
+
+        // Truyền cả hai biến vào view
+        return view('employee.requests.index', compact('requests', 'lowStockProducts'));
     }
+
 
     public function processRequest(Request $request, $id)
     {
@@ -378,7 +389,9 @@ class EmployeeController extends Controller
     public function reviews()
     {
         $reviews = Review::with(['product', 'user'])->latest()->paginate(10);
-        return view('employee.reviews.index', compact('reviews'));
+        // Lấy thông báo chưa đọc liên quan đến đánh giá
+        $notifications = Auth::user()->notifications()->where('type', 'new_review')->where('is_read', false)->latest()->get();
+        return view('employee.reviews.index', compact('reviews', 'notifications'));
     }
 
     public function showReview(Review $review)
@@ -463,6 +476,21 @@ public function showStockRequestForm()
         try {
             \DB::beginTransaction();
             $requestModel = RequestModel::create($requestData);
+
+            // Gửi thông báo cho nhà cung cấp
+            $supplier = \App\Models\User::find($validated['supplier_id']);
+            if ($supplier) {
+                $this->notificationService->createNotification(
+                    $supplier->id,
+                    'new_stock_request',
+                    'Yêu cầu nhập hàng mới',
+                    "Nhân viên đã gửi yêu cầu nhập hàng cho sản phẩm '{$requestModel->product->name}'. Xem chi tiết tại: " . route('supplier.requests.show', $requestModel->id),
+                    ['request_id' => $requestModel->id],
+                    $requestModel->id,
+                    'RequestModel'
+                );
+            }
+
             \DB::commit();
             return redirect()->route('employee.requests')->with('success', 'Yêu cầu nhập hàng đã được gửi thành công!')->with('request_id', $requestModel->id);
         } catch (\Exception $e) {

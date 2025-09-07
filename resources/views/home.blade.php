@@ -126,9 +126,20 @@
                                 <i class="fas fa-cart-plus"></i> Thêm vào giỏ
                             </button>
                         </form>
-                        <a href="{{ route('customer.reviews.create', $product->id) }}" class="btn btn-warning btn-sm mt-2">
-                            <i class="fas fa-star"></i> Viết đánh giá
-                        </a>
+                        <!-- Nút Yêu thích -->
+                        <button class="btn btn-outline-danger btn-sm mt-2 favorite-btn {{ auth()->check() && auth()->user()->favorites->contains($product->id) ? 'active' : '' }}"
+                                data-product-id="{{ $product->id }}"
+                                title="Yêu thích">
+                            <svg class="icon_heart"><use href="#icon_heart"></use></svg>
+                        </button>
+                        <!-- Nút Viết đánh giá (chỉ hiển thị nếu đã đặt sản phẩm) -->
+                        @if(auth()->check() && auth()->user()->orders()->whereHas('orderItems', function($query) use ($product) {
+                            $query->where('product_id', $product->id);
+                        })->exists())
+                            <a href="{{ route('customer.reviews.create', $product->id) }}" class="btn btn-warning btn-sm mt-2">
+                                <i class="fas fa-star"></i> Viết đánh giá
+                            </a>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -201,5 +212,55 @@
     .card:hover {
         transform: scale(1.05);
     }
+    <style>
+    .sale-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background-color: #ff4444;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        font-size: 14px;
+        transform: rotate(-20deg);
+        z-index: 1;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .card {
+        transition: transform 0.3s ease;
+    }
+
+    .card:hover {
+        transform: scale(1.05);
+    }
+
+    .icon_heart {
+        width: 20px;
+        height: 20px;
+    }
+
+    .favorite-btn {
+        color: #ff4444;
+        transition: color 0.3s ease, transform 0.3s ease;
+    }
+
+    .favorite-btn.active {
+        color: #ff0000;
+        transform: scale(1.2);
+    }
+
+    .favorite-btn:hover {
+        color: #ff6666;
+        transform: scale(1.1);
+    }
+    .card-img-top {
+    width: 100%;       /* chiếm toàn bộ chiều ngang card */
+    max-height: 350px; /* giới hạn chiều cao tối đa */
+    object-fit: cover; /* giữ tỉ lệ, cắt bớt nếu cần */
+    border-radius: 5px;
+}
+</style>
 </style>
 @endsection

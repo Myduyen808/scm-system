@@ -207,6 +207,7 @@ Route::middleware(['auth', 'role:customer'])->group(function () {
     // Thêm route cho PayPal
 
     Route::post('/customer/paypal/create', [CustomerController::class, 'processPayment'])->name('customer.paypal.create');
+    Route::post('/customer/paypal/create', [CustomerController::class, 'paypalCreate'])->name('customer.paypal.create');
     Route::get('/customer/paypal/success/{order}', [CustomerController::class, 'paypalSuccess'])->name('customer.paypal.success');
     Route::get('/customer/paypal/cancel/{order}', [CustomerController::class, 'paypalCancel'])->name('customer.paypal.cancel');
 
@@ -220,6 +221,10 @@ Route::middleware(['auth', 'role:customer'])->group(function () {
     Route::get('/products-for-review', [CustomerController::class, 'productsForReview'])->name('customer.products.for-review');
     Route::get('/reviews/create/{product}', [CustomerController::class, 'createReview'])->name('customer.reviews.create');
     Route::post('/reviews/{product}', [CustomerController::class, 'storeReview'])->name('customer.reviews.store');
+
+    //yêu thích
+    Route::post('/customer/favorites/toggle/{productId}', [CustomerController::class, 'toggleFavorite'])->name('customer.favorites.toggle');
+    Route::get('/customer/favorites', [CustomerController::class, 'favorites'])->name('customer.favorites');
 
 });
 

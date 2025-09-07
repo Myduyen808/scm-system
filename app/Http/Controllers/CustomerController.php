@@ -56,23 +56,29 @@ class CustomerController extends Controller
 
         return view('customer.home', compact('featuredProducts', 'pendingOrders', 'cartCount'));
     }
+public function products(Request $request)
+{
+    $user = Auth::user();
+    $cartCount = $user ? $user->cartItems()->sum('quantity') : 0;
 
-    public function products(Request $request)
-    {
-        $user = auth()->user();
-        $cartCount = $user->cartItems()->sum('quantity');
-        $query = Product::where('is_approved', true)
-            ->where('is_active', true)
-            ->with('promotions'); // Tải quan hệ promotions
+    $query = Product::where('is_approved', true)
+        ->where('is_active', true)
+        ->with('promotions'); // Tải quan hệ promotions
 
-        if ($request->input('search')) {
-            $query->where('name', 'like', '%' . $request->input('search') . '%')
-                ->orWhere('sku', 'like', '%' . $request->input('search') . '%');
-        }
-
-        $products = $query->orderBy('created_at', 'desc')->paginate(12);
-        return view('customer.products.index', compact('products', 'cartCount'));
+    if ($request->input('search')) {
+        $query->where('name', 'like', '%' . $request->input('search') . '%')
+            ->orWhere('sku', 'like', '%' . $request->input('search') . '%');
     }
+
+    $products = $query->orderBy('created_at', 'desc')->paginate(12);
+
+    // Eager load favorites chỉ để kiểm tra trạng thái, không lọc sản phẩm
+    if ($user) {
+        $user->load('favorites');
+    }
+
+    return view('customer.products.index', compact('products', 'cartCount', 'user'));
+}
 
     public function cart()
     {
@@ -234,75 +240,73 @@ class CustomerController extends Controller
         return view('customer.checkout.checkout', compact('cartItems', 'total', 'discountedTotal', 'addresses'));
     }
 
-    public function placeOrder(Request $request)
-    {
-        $cartItems = Cart::with(['product', 'product.inventory'])
-            ->where('user_id', Auth::id())
-            ->get();
+public function placeOrder(Request $request)
+{
+    $cartItems = Cart::with(['product', 'product.inventory'])
+        ->where('user_id', Auth::id())
+        ->get();
 
-        if ($cartItems->isEmpty()) {
-            return redirect()->route('customer.cart')->with('error', 'Giỏ hàng trống!');
-        }
-
-        $request->validate([
-            'address_id' => 'required|exists:addresses,id,user_id,' . Auth::id()
-        ]);
-
-        $address = Address::where('user_id', Auth::id())->findOrFail($request->address_id);
-
-        $total = $cartItems->sum(function ($item) {
-            return $item->product->current_price * $item->quantity;
-        });
-            // Tạo Order
-
-        $order = Order::create([
-            'order_number'     => 'ORD-' . time(),
-            'customer_id'      => Auth::id(),
-            'total_amount'     => $total,
-            'shipping_name'    => $address->name,         // đảm bảo $address->name có giá trị
-            'shipping_phone'   => $address->phone,        // đảm bảo $address->phone có giá trị
-            'shipping_address' => $address->address_line,
-            'payment_method'   => 'stripe',
-            'status'           => 'processing',
-            'payment_status'   => 'pending',
-        ]);
-
-
-        $exchangeRate = 26351;
-        $totalInUsd = $total / $exchangeRate;
-
-        if ($totalInUsd > 999999.99) {
-            return back()->with('error', 'Tổng tiền vượt quá giới hạn thanh toán ($999,999.99). Vui lòng giảm số lượng hoặc liên hệ hỗ trợ!');
-        }
-
-        $stripeSecret = env('STRIPE_SECRET_KEY');
-        if (empty($stripeSecret)) {
-            throw new \Exception('Stripe Secret Key không tồn tại hoặc chưa được cấu hình trong .env');
-        }
-
-        Stripe::setApiKey($stripeSecret);
-
-        $cartItemsData = $cartItems->map(function ($item) {
-            return [
-                'product_id' => $item->product_id,
-                'quantity' => $item->quantity,
-                'price' => $item->product->current_price,
-            ];
-        })->all();
-
-        $paymentIntent = PaymentIntent::create([
-            'amount'   => max(1, (int) round($totalInUsd * 100)),
-            'currency' => 'usd',
-            'metadata' => [
-                'cart_items' => json_encode($cartItemsData),
-                'address' => $address->address_line,
-                'total' => $total,
-                'payment_method' => $request->input('payment_method', 'stripe'),
-            ],
-        ]);
-
-        return view('customer.checkout.confirm', compact('cartItems', 'total', 'order', 'paymentIntent'));
+    if ($cartItems->isEmpty()) {
+        return redirect()->route('customer.cart')->with('error', 'Giỏ hàng trống!');
     }
+
+    $request->validate([
+        'address_id' => 'required|exists:addresses,id,user_id,' . Auth::id()
+    ]);
+
+    $address = Address::where('user_id', Auth::id())->findOrFail($request->address_id);
+
+    $total = $cartItems->sum(function ($item) {
+        return $item->product->current_price * $item->quantity;
+    });
+
+    $order = Order::create([
+        'order_number' => 'ORD-' . time(),
+        'customer_id' => Auth::id(),
+        'total_amount' => $total,
+        'shipping_name' => $address->name,
+        'shipping_phone' => $address->phone,
+        'shipping_address' => $address->address_line,
+        'payment_method' => 'stripe',
+        'status' => 'processing',
+        'payment_status' => 'pending',
+    ]);
+
+    $exchangeRate = 26351;
+    $totalInUsd = $total / $exchangeRate;
+
+    if ($totalInUsd > 999999.99) {
+        return back()->with('error', 'Tổng tiền vượt quá giới hạn thanh toán ($999,999.99). Vui lòng giảm số lượng hoặc liên hệ hỗ trợ!');
+    }
+
+    $stripeSecret = env('STRIPE_SECRET_KEY');
+    if (empty($stripeSecret)) {
+        throw new \Exception('Stripe Secret Key không tồn tại hoặc chưa được cấu hình trong .env');
+    }
+
+    Stripe::setApiKey($stripeSecret);
+
+    $cartItemsData = $cartItems->map(function ($item) {
+        return [
+            'product_id' => $item->product_id,
+            'quantity' => $item->quantity,
+            'price' => $item->product->current_price,
+        ];
+    })->all();
+
+    $paymentIntent = PaymentIntent::create([
+        'amount' => max(1, (int)round($totalInUsd * 100)),
+        'currency' => 'usd',
+        'metadata' => [
+            'cart_items' => json_encode($cartItemsData),
+            'address' => $address->address_line,
+            'total' => $total,
+            'payment_method' => $request->input('payment_method', 'stripe'),
+        ],
+    ]);
+
+    return view('customer.checkout.confirm', compact('cartItems', 'total', 'order', 'paymentIntent', 'address')); // Thêm address
+}
 
 
 
@@ -505,7 +509,7 @@ class CustomerController extends Controller
         }
     }
 
-    public function paypalCreate(Request $request, PaypalDirectService $paypal)
+public function paypalCreate(Request $request, PaypalDirectService $paypal)
 {
     try {
         $cartItems = Cart::where('user_id', Auth::id())->with('product')->get();
@@ -519,18 +523,29 @@ class CustomerController extends Controller
             return $item->quantity * $item->product->current_price;
         });
 
-        DB::beginTransaction();
-
-        // Tạo Order
-        $order = Order::create([
-            'user_id' => Auth::id(),
-            'total_amount' => $total,
-            'status' => 'pending',
-            'payment_status' => 'pending',
-            'shipping_address' => $request->address ?? 'Địa chỉ mặc định',
+        // Validate và lấy address_id
+        $request->validate([
+            'address_id' => 'required|exists:addresses,id,user_id,' . Auth::id()
         ]);
 
-        // **QUAN TRỌNG: Tạo OrderItems ngay khi tạo Order**
+        $address = Address::where('user_id', Auth::id())->findOrFail($request->address_id);
+
+        DB::beginTransaction();
+
+        // Tạo Order với order_number và thông tin địa chỉ
+        $order = Order::create([
+            'order_number' => 'ORD-' . time(),
+            'customer_id' => Auth::id(),
+            'total_amount' => $total,
+            'shipping_name' => $address->name,
+            'shipping_phone' => $address->phone,
+            'shipping_address' => $address->address_line,
+            'status' => 'pending',
+            'payment_status' => 'pending',
+            'payment_method' => 'paypal',
+        ]);
+
+        // Tạo OrderItems
         foreach ($cartItems as $cartItem) {
             OrderItem::create([
                 'order_id' => $order->id,
@@ -541,7 +556,7 @@ class CustomerController extends Controller
             ]);
         }
 
-        $totalUsd = $total / 26351; // Chuyển đổi sang USD
+        $totalUsd = $total / 26351;
 
         $paypalOrder = $paypal->createOrder(
             $totalUsd,
@@ -549,14 +564,20 @@ class CustomerController extends Controller
             route('customer.paypal.cancel', $order->id)
         );
 
+        \Log::info('PayPal Order Response: ' . json_encode($paypalOrder));
+
         DB::commit();
 
-        // Redirect đến PayPal
-        foreach ($paypalOrder['links'] as $link) {
-            if ($link['rel'] === 'approve') {
-                return redirect($link['href']);
+        if (isset($paypalOrder['links'])) {
+            foreach ($paypalOrder['links'] as $link) {
+                if ($link['rel'] === 'approve') {
+                    return redirect()->away($link['href']);
+                }
             }
         }
+
+        return redirect()->route('customer.checkout')
+            ->with('error', 'Không tìm thấy link thanh toán PayPal. Vui lòng thử lại hoặc liên hệ hỗ trợ.');
 
     } catch (\Exception $e) {
         DB::rollBack();
@@ -564,7 +585,7 @@ class CustomerController extends Controller
         return redirect()->route('customer.checkout')
             ->with('error', 'Có lỗi khi tạo thanh toán PayPal: ' . $e->getMessage());
     }
-    }
+}
 
 
     public function paypalCancel(Request $request, $orderId)
@@ -620,13 +641,41 @@ class CustomerController extends Controller
             'comment' => 'required|string|max:1000',
         ]);
 
-        Review::create([
+        $review = Review::create([
             'user_id' => Auth::id(),
             'product_id' => $productId,
             'rating' => $validated['rating'],
             'comment' => $validated['comment'],
             'status' => 'pending',
         ]);
+
+        // Gửi thông báo cho tất cả nhân viên
+        $employees = \App\Models\User::role('employee')->get();
+        foreach ($employees as $employee) {
+            $this->notificationService->createNotification(
+                $employee->id,
+                'new_review',
+                'Đánh giá mới',
+                "Khách hàng đã thêm đánh giá cho sản phẩm '{$review->product->name}'. Xem chi tiết tại: " . route('employee.reviews.show', $review->id),
+                ['review_id' => $review->id],
+                $review->id,
+                'Review'
+            );
+        }
+
+        // Gửi thông báo cho tất cả admin
+        $admins = \App\Models\User::role('admin')->get();
+        foreach ($admins as $admin) {
+            $this->notificationService->createNotification(
+                $admin->id,
+                'new_review',
+                'Đánh giá mới',
+                "Khách hàng đã thêm đánh giá cho sản phẩm '{$review->product->name}'. Xem chi tiết tại: " . route('admin.reviews.show', $review->id),
+                ['review_id' => $review->id],
+                $review->id,
+                'Review'
+            );
+        }
 
         return redirect()->route('customer.products')->with('success', 'Đánh giá đã được gửi!');
     }
@@ -1068,6 +1117,38 @@ public function momoInput($orderId)
 
         return redirect()->route('customer.showSupport', $ticket->id)
             ->with('success', 'Phản hồi của bạn đã được gửi!');
+    }
+
+    public function toggleFavorite($productId)
+    {
+        $user = Auth::user();
+        $favorite = $user->favorites()->where('product_id', $productId)->first();
+
+        if ($favorite) {
+            $user->favorites()->detach($productId); // Xóa mối quan hệ an toàn
+            return response()->json(['success' => false, 'message' => 'Đã xóa khỏi danh sách yêu thích!']);
+        } else {
+            $user->favorites()->attach($productId);
+            $product = Product::find($productId);
+            $this->notificationService->createNotification(
+                $user->id,
+                'favorite_added',
+                'Sản phẩm yêu thích',
+                "Bạn đã yêu thích sản phẩm \"{$product->name}\".",
+                ['product_id' => $productId],
+                $productId,
+                'Product'
+            );
+            return response()->json(['success' => true, 'message' => 'Đã thêm vào danh sách yêu thích!', 'product_name' => $product->name]);
+        }
+    }
+
+    public function favorites()
+    {
+        $user = Auth::user();
+        $favorites = $user->favorites()->with(['promotions', 'supplier'])->paginate(10); // Tải sản phẩm yêu thích với promotions và supplier
+
+        return view('customer.favorites.index', compact('favorites'));
     }
 
 }

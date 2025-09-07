@@ -1,20 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Danh Sách Sản Phẩm - Khách Hàng')
+@section('title', 'Danh Sách Yêu Thích - Khách Hàng')
 
 @section('content')
 <div class="container">
-    <h1 class="mb-4"><i class="fas fa-shopping-bag"></i> Danh Sách Sản Phẩm</h1>
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <form method="GET" class="d-flex">
-                <input type="text" name="search" placeholder="Tìm tên hoặc SKU..." value="{{ request()->input('search') }}" class="form-control me-2">
-                <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Tìm</button>
-            </form>
-        </div>
-    </div>
+    <h1 class="mb-4"><i class="fas fa-heart"></i> Danh Sách Yêu Thích</h1>
     <div class="row">
-        @forelse($products as $product)
+        @forelse($favorites as $product)
         <div class="col-md-3 mb-4">
             <div class="card fade-in position-relative">
                 @if($product->regular_price && $product->current_price < $product->regular_price)
@@ -26,11 +18,11 @@
                 <a href="{{ route('customer.products.show', $product->id) }}" class="text-decoration-none">
                     <img src="{{ $product->image ? Storage::url($product->image) : 'https://via.placeholder.com/250x200' }}" class="card-img-top" alt="{{ $product->name }}">
                 </a>
-                <div class="card-body">
+                <div class="card-body d-flex flex-column">
                     <a href="{{ route('customer.products.show', $product->id) }}" class="text-decoration-none text-dark">
                         <h6 class="card-title">{{ $product->name }}</h6>
                     </a>
-                    <p class="card-text">
+                    <p class="card-text mb-2">
                         @if($product->regular_price && $product->current_price < $product->regular_price)
                             <del class="text-muted">₫{{ number_format($product->regular_price, 0, ',', '.') }}</del>
                             <strong class="text-danger">₫{{ number_format($product->current_price, 0, ',', '.') }}</strong>
@@ -38,35 +30,30 @@
                             <strong>₫{{ number_format($product->current_price, 0, ',', '.') }}</strong>
                         @endif
                     </p>
-                    <form action="{{ route('customer.cart.add', $product->id) }}" method="POST" class="d-inline">
-                        @csrf
-                        <input type="hidden" name="quantity" value="1">
-                        <button type="submit" class="btn btn-primary btn-sm add-to-cart-btn">
-                            <i class="fas fa-cart-plus"></i> Thêm vào giỏ
+                    <div class="d-flex gap-2 mt-auto">
+                        <!-- Nút Bỏ yêu thích -->
+                        <button class="btn btn-outline-danger btn-sm favorite-btn {{ $product->pivot->user_id == Auth::id() ? 'active' : '' }}"
+                                data-product-id="{{ $product->id }}"
+                                title="Bỏ yêu thích">
+                            <svg class="icon_heart" style="width: 16px; height: 16px;"><use href="#icon_heart"></use></svg>
                         </button>
-                    </form>
-                    <!-- Nút Yêu thích -->
-                    <button class="btn btn-outline-danger btn-sm mt-2 favorite-btn {{ $user && $user->favorites->contains($product->id) ? 'active' : '' }}"
-                            data-product-id="{{ $product->id }}"
-                            title="Yêu thích">
-                        <svg class="icon_heart"><use href="#icon_heart"></use></svg>
-                    </button>
-                    <!-- Nút Viết đánh giá (chỉ hiển thị nếu đã đặt sản phẩm) -->
-                    @if($user && $user->orders()->whereHas('orderItems', function($query) use ($product) {
-                        $query->where('product_id', $product->id);
-                    })->exists())
-                        <a href="{{ route('customer.reviews.create', $product->id) }}" class="btn btn-warning btn-sm mt-2">
-                            <i class="fas fa-star"></i> Viết đánh giá
-                        </a>
-                    @endif
+                        <!-- Thêm vào giỏ -->
+                        <form action="{{ route('customer.cart.add', $product->id) }}" method="POST" class="d-inline">
+                            @csrf
+                            <input type="hidden" name="quantity" value="1">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="fas fa-cart-plus"></i> Thêm vào giỏ
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
         @empty
-        <div class="col-md-12"><p class="text-center">Không có sản phẩm nào.</p></div>
+        <div class="col-md-12"><p class="text-center">Không có sản phẩm nào trong danh sách yêu thích.</p></div>
         @endforelse
     </div>
-    {{ $products->links() }}
+    {{ $favorites->links() }}
 </div>
 @endsection
 
@@ -96,8 +83,8 @@
     }
 
     .icon_heart {
-        width: 20px;
-        height: 20px;
+        width: 16px;
+        height: 16px;
     }
 
     .favorite-btn {
@@ -114,14 +101,5 @@
         color: #ff6666;
         transform: scale(1.1);
     }
-.card-img-top {
-    width: 100%;       /* chiếm toàn bộ chiều ngang card */
-    max-height: 250px; /* giới hạn chiều cao tối đa */
-    object-fit: cover; /* giữ tỉ lệ, cắt bớt nếu cần */
-    border-radius: 5px;
-}
-
-
 </style>
 @endsection
-

@@ -107,54 +107,69 @@
         @endcan
     </div>
 
-    <!-- Featured Products Section -->
-    <div class="row mt-5">
-        <div class="col-md-12">
-            <h2 class="mb-4">Sản phẩm nổi bật</h2>
-        </div>
+<!-- Featured Products Section -->
+<div class="row mt-5">
+    <div class="col-md-12">
+        <h2 class="mb-4">Sản phẩm nổi bật</h2>
     </div>
+</div>
 
-    <div class="row">
-        @forelse($featuredProducts as $product)
-        <div class="col-md-3 mb-4">
-            <div class="card position-relative">
-                @if($product->regular_price && $product->current_price < $product->regular_price)
-                    <?php
-                        $discountPercentage = round((($product->regular_price - $product->current_price) / $product->regular_price) * 100);
-                    ?>
-                    <span class="sale-badge">Sale {{ $discountPercentage }}%</span>
-                @endif
+<div class="row">
+    @forelse($featuredProducts as $product)
+    <div class="col-md-3 mb-4">
+        <div class="card fade-in position-relative">
+            @if($product->regular_price && $product->current_price < $product->regular_price)
+                <?php
+                    $discountPercentage = round((($product->regular_price - $product->current_price) / $product->regular_price) * 100);
+                ?>
+                <span class="sale-badge">Sale {{ $discountPercentage }}%</span>
+            @endif
+            <a href="{{ route('customer.products.show', $product->id) }}" class="text-decoration-none">
                 <img src="{{ $product->image ? Storage::url($product->image) : 'https://via.placeholder.com/250x200' }}" class="card-img-top" alt="{{ $product->name }}">
-                <div class="card-body">
+            </a>
+            <div class="card-body">
+                <a href="{{ route('customer.products.show', $product->id) }}" class="text-decoration-none text-dark">
                     <h6 class="card-title">{{ $product->name }}</h6>
-                    <p class="card-text">
-                        @if($product->current_price && $product->current_price < ($product->sale_price ?? $product->regular_price))
-                            <del class="text-muted">₫{{ number_format($product->regular_price, 0, ',', '.') }}</del>
-                            <strong class="text-danger">₫{{ number_format($product->current_price, 0, ',', '.') }}</strong>
-                        @elseif($product->sale_price && $product->sale_price < $product->regular_price)
-                            <del class="text-muted">₫{{ number_format($product->regular_price, 0, ',', '.') }}</del>
-                            <strong class="text-danger">₫{{ number_format($product->sale_price, 0, ',', '.') }}</strong>
-                        @else
-                            <strong>₫{{ number_format($product->regular_price, 0, ',', '.') }}</strong>
-                        @endif
-                    </p>
-                    <form action="{{ route('customer.cart.add', $product->id) }}" method="POST" class="d-inline">
-                        @csrf
-                        <input type="hidden" name="quantity" value="1">
-                        <button type="submit" class="btn btn-primary btn-sm add-to-cart-btn">
-                            <i class="fas fa-cart-plus"></i> Thêm vào giỏ
-                        </button>
-                    </form>
+                </a>
+                <p class="card-text">
+                    @if($product->current_price && $product->current_price < ($product->sale_price ?? $product->regular_price))
+                        <del class="text-muted">₫{{ number_format($product->regular_price, 0, ',', '.') }}</del>
+                        <strong class="text-danger">₫{{ number_format($product->current_price, 0, ',', '.') }}</strong>
+                    @elseif($product->sale_price && $product->sale_price < $product->regular_price)
+                        <del class="text-muted">₫{{ number_format($product->regular_price, 0, ',', '.') }}</del>
+                        <strong class="text-danger">₫{{ number_format($product->sale_price, 0, ',', '.') }}</strong>
+                    @else
+                        <strong>₫{{ number_format($product->regular_price, 0, ',', '.') }}</strong>
+                    @endif
+                </p>
+                <form action="{{ route('customer.cart.add', $product->id) }}" method="POST" class="d-inline">
+                    @csrf
+                    <input type="hidden" name="quantity" value="1">
+                    <button type="submit" class="btn btn-primary btn-sm add-to-cart-btn">
+                        <i class="fas fa-cart-plus"></i> Thêm vào giỏ
+                    </button>
+                </form>
+                <!-- Nút Yêu thích -->
+                <button class="btn btn-outline-danger btn-sm mt-2 favorite-btn {{ auth()->check() && auth()->user()->favorites->contains($product->id) ? 'active' : '' }}"
+                        data-product-id="{{ $product->id }}"
+                        title="Yêu thích">
+                    <svg class="icon_heart"><use href="#icon_heart"></use></svg>
+                </button>
+                <!-- Nút Viết đánh giá (chỉ hiển thị nếu đã đặt sản phẩm) -->
+                @if(auth()->check() && auth()->user()->orders()->whereHas('orderItems', function($query) use ($product) {
+                    $query->where('product_id', $product->id);
+                })->exists())
                     <a href="{{ route('customer.reviews.create', $product->id) }}" class="btn btn-warning btn-sm mt-2">
                         <i class="fas fa-star"></i> Viết đánh giá
                     </a>
-                </div>
+                @endif
             </div>
         </div>
-        @empty
-        <div class="col-md-12"><p class="text-center">Không có sản phẩm nổi bật.</p></div>
-        @endforelse
     </div>
+    @empty
+    <div class="col-md-12"><p class="text-center">Không có sản phẩm nổi bật.</p></div>
+    @endforelse
+</div>
 </div>
 @endsection
 
@@ -182,5 +197,53 @@
     .card:hover {
         transform: scale(1.05);
     }
+    .sale-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background-color: #ff4444;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        font-size: 14px;
+        transform: rotate(-20deg);
+        z-index: 1;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .card {
+        transition: transform 0.3s ease;
+    }
+
+    .card:hover {
+        transform: scale(1.05);
+    }
+
+    .icon_heart {
+        width: 20px;
+        height: 20px;
+    }
+
+    .favorite-btn {
+        color: #ff4444;
+        transition: color 0.3s ease, transform 0.3s ease;
+    }
+
+    .favorite-btn.active {
+        color: #ff0000;
+        transform: scale(1.2);
+    }
+
+    .favorite-btn:hover {
+        color: #ff6666;
+        transform: scale(1.1);
+    }
+    .card-img-top {
+    width: 100%;       /* chiếm toàn bộ chiều ngang card */
+    max-height: 250px; /* giới hạn chiều cao tối đa */
+    object-fit: cover; /* giữ tỉ lệ, cắt bớt nếu cần */
+    border-radius: 5px;
+}
 </style>
 @endsection

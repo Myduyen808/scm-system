@@ -13,7 +13,7 @@ class Product extends Model
 
     protected $fillable = [
         'name', 'description', 'regular_price', 'sale_price',
-        'image', 'sku', 'stock_quantity', 'is_active', 'supplier_id','current_price','is_approved'
+        'image', 'sku', 'stock_quantity', 'is_active', 'supplier_id', 'current_price', 'is_approved'
     ];
 
     protected $casts = [
@@ -46,7 +46,14 @@ class Product extends Model
     {
         return $this->belongsToMany(Promotion::class, 'promotion_product');
     }
-// Accessor cho giá hiện tại, ưu tiên khuyến mãi nếu có
+
+    // Thêm mối quan hệ ngược lại với User qua bảng favorites
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'favorites', 'product_id', 'user_id');
+    }
+
+    // Accessor cho giá hiện tại, ưu tiên khuyến mãi nếu có
     public function getCurrentPriceAttribute()
     {
         $basePrice = $this->sale_price ?? $this->regular_price ?? 0;
@@ -80,10 +87,9 @@ class Product extends Model
     }
 
     public function inventory()
-        {
-            return $this->hasOne(Inventory::class);
-        }
-
+    {
+        return $this->hasOne(Inventory::class);
+    }
 
     // Cái này là bắt buộc khi dùng LogsActivity
     public function getActivitylogOptions(): LogOptions
@@ -93,5 +99,4 @@ class Product extends Model
             ->useLogName('product')
             ->setDescriptionForEvent(fn(string $eventName) => "Product has been {$eventName}");
     }
-
 }

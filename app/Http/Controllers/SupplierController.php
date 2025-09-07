@@ -144,6 +144,20 @@ class SupplierController extends Controller
                 'updated_at' => now(),
             ]);
 
+            // Gửi thông báo cho tất cả admin
+        $admins = \App\Models\User::role('admin')->get();
+        foreach ($admins as $admin) {
+            $this->notificationService->createNotification(
+                $admin->id,
+                'new_product_pending',
+                'Sản phẩm mới chờ phê duyệt',
+                "Nhà cung cấp '{$product->supplier->name}' đã thêm sản phẩm '{$product->name}' cần phê duyệt. Xem chi tiết tại: " . route('admin.pending.products'),
+                ['product_id' => $product->id],
+                $product->id,
+                'Product'
+            );
+        }
+
             \DB::commit();
             return redirect()->route('supplier.products')->with('success', 'Sản phẩm đã được thêm thành công!');
         } catch (\Exception $e) {

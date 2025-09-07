@@ -30,18 +30,18 @@
                         <h4 class="card-title">Thông tin đơn hàng</h4>
                         <hr>
                         <p><strong>Tổng tiền:</strong> {{ number_format($total, 0, ',', '.') }} đ</p>
-                        <p><strong>Người nhận:</strong> {{ $address->name }}</p>
-                        <p><strong>Số điện thoại:</strong> {{ $address->phone }}</p>
-                        <p><strong>Địa chỉ giao hàng:</strong> {{ $address->address_line }}</p>
+                        <p><strong>Người nhận:</strong> {{ $address->name ?? 'Không xác định' }}</p>
+                        <p><strong>Số điện thoại:</strong> {{ $address->phone ?? 'Không có' }}</p>
+                        <p><strong>Địa chỉ giao hàng:</strong> {{ $address->address_line ?? 'Chưa cập nhật' }}</p>
 
                         <h5 class="mt-3">Sản phẩm trong giỏ hàng</h5>
                         <div class="list-group">
                             @foreach ($cartItems as $item)
                                 <div class="list-group-item d-flex align-items-center">
-                                    <img src="{{ asset('storage/' . $item->product->image) }}" alt="{{ $item->product->name }}" class="me-3" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;">
+                                    <img src="{{ asset('storage/' . ($item->product->image ?? 'default.jpg')) }}" alt="{{ $item->product->name ?? 'Sản phẩm' }}" class="me-3" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;">
                                     <div>
-                                        <p class="mb-0"><strong>{{ $item->product->name }}</strong></p>
-                                        <small>Số lượng: {{ $item->quantity }} - Giá: {{ number_format($item->product->current_price, 0, ',', '.') }} đ</small>
+                                        <p class="mb-0"><strong>{{ $item->product->name ?? 'Không có tên' }}</strong></p>
+                                        <small>Số lượng: {{ $item->quantity }} - Giá: {{ number_format($item->product->current_price ?? 0, 0, ',', '.') }} đ</small>
                                     </div>
                                 </div>
                             @endforeach
@@ -74,21 +74,21 @@
                     </form>
 
                     <!-- Nút PayPal -->
-                    <form action="{{ route('customer.paypal.create') }}" method="POST" id="paypal-form" style="display: none;">
-                        @csrf
-                        <input type="hidden" name="cart_items" value="{{ json_encode($cartItems->map(function ($item) {
-                            return [
-                                'product_id' => $item->product_id,
-                                'quantity' => $item->quantity,
-                                'price' => $item->product->current_price ?? 0,
-                            ];
-                        })->toArray()) }}">
-                        <input type="hidden" name="address" value="{{ $address->name }} - {{ $address->phone }} - {{ $address->address_line }}">
-                        <input type="hidden" name="total" value="{{ $total }}">
-                        <button type="submit" class="btn btn-primary btn-lg w-100" id="pay-button-paypal">
-                            <i class="fab fa-paypal"></i> Thanh toán với PayPal
-                        </button>
-                    </form>
+                <form action="{{ route('customer.paypal.create') }}" method="POST" id="paypal-form" style="display: none;">
+                    @csrf
+                    <input type="hidden" name="address_id" value="{{ $address->id ?? '' }}"> <!-- Đảm bảo gửi address_id -->
+                    <input type="hidden" name="cart_items" value="{{ json_encode($cartItems->map(function ($item) {
+                        return [
+                            'product_id' => $item->product_id,
+                            'quantity' => $item->quantity,
+                            'price' => $item->product->current_price ?? 0,
+                        ];
+                    })->toArray()) }}">
+                    <input type="hidden" name="total" value="{{ $total }}">
+                    <button type="submit" class="btn btn-primary btn-lg w-100" id="pay-button-paypal">
+                        <i class="fab fa-paypal"></i> Thanh toán với PayPal
+                    </button>
+                </form>
 
                     <!-- Form thanh toán MoMo Mock -->
                     <form action="{{ route('customer.momo.create') }}" method="POST" id="momo-form" style="display: none;">
@@ -100,7 +100,7 @@
                                 'price' => $item->product->current_price ?? 0,
                             ];
                         })->toArray()) }}">
-                        <input type="hidden" name="address" value="{{ $address->name }} - {{ $address->phone }} - {{ $address->address_line }}">
+                        <input type="hidden" name="address" value="{{ $address->name ?? '' }} - {{ $address->phone ?? '' }} - {{ $address->address_line ?? '' }}">
                         <input type="hidden" name="total" value="{{ $total }}">
                         <button type="submit" class="btn btn-primary btn-lg w-100" id="pay-button-momo">
                             <i class="fab fa-momo"></i> Thanh toán với MoMo (Mock)
