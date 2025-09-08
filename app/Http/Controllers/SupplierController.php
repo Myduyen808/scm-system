@@ -23,43 +23,62 @@ class SupplierController extends Controller
     }
 
     // Dashboard
-    public function dashboard()
-    {
-        $totalProducts = Product::where('supplier_id', Auth::id())->count();
-        $pendingOrders = Order::where('status', 'pending')
-            ->whereHas('orderItems.product', function ($query) {
-                $query->where('supplier_id', Auth::id());
-            })->count();
-        $monthlyRevenue = Order::where('status', 'delivered') // Thống nhất với 'delivered'
-            ->whereHas('orderItems.product', function ($query) {
-                $query->where('supplier_id', Auth::id());
-            })
-            ->whereBetween('created_at', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])
-            ->sum('total_amount') ?: 0;
 
-        // Lấy doanh thu theo tháng cho 12 tháng
-        $monthlyRevenues = Order::where('status', 'delivered') // Thống nhất với 'delivered'
-            ->whereHas('orderItems.product', function ($query) {
-                $query->where('supplier_id', Auth::id());
-            })
-            ->selectRaw('MONTH(created_at) as month, SUM(total_amount) as revenue')
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get()
-            ->pluck('revenue', 'month')
-            ->all();
+public function dashboard()
+{
+    $supplierId = Auth::id();
 
-        // Cập nhật labels cho 12 tháng
-        $labels = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
-        $data = array_map(function($month) use ($monthlyRevenues) {
-            return $monthlyRevenues[$month] ?? 0; // Gán 0 nếu tháng chưa có doanh thu
-        }, range(1, 12));
+    // Thống kê cơ bản
+    $totalProducts = Product::where('supplier_id', $supplierId)->count();
+    $pendingOrders = Order::where('status', 'pending')
+        ->whereHas('orderItems.product', function ($query) use ($supplierId) {
+            $query->where('supplier_id', $supplierId);
+        })->count();
+    $monthlyRevenue = Order::where('status', 'delivered')
+        ->whereHas('orderItems.product', function ($query) use ($supplierId) {
+            $query->where('supplier_id', $supplierId);
+        })
+        ->whereBetween('created_at', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])
+        ->sum('total_amount') ?: 0;
 
-        $pendingApprovalCount = Product::where('supplier_id', Auth::id())->where('is_approved', false)->count();
+    // Lấy doanh thu theo tháng cho 12 tháng gần nhất
+    $monthlyRevenues = Order::where('status', 'delivered')
+        ->whereHas('orderItems.product', function ($query) use ($supplierId) {
+            $query->where('supplier_id', $supplierId);
+        })
+        ->selectRaw('YEAR(created_at) as year, MONTH(created_at) as month, SUM(total_amount) as revenue')
+        ->groupBy('year', 'month')
+        ->get()
+        ->keyBy(function ($item) {
+            return $item->year . '-' . str_pad($item->month, 2, '0', STR_PAD_LEFT);
+        })
+        ->map->revenue
+        ->all();
 
-        return view('supplier.dashboard', compact('totalProducts', 'pendingOrders', 'monthlyRevenue', 'labels', 'data', 'pendingApprovalCount'));
+    // Tạo labels và data cho 12 tháng gần nhất
+    $labels = [];
+    $data = [];
+    $currentMonth = Carbon::now()->month;
+    $currentYear = Carbon::now()->year;
+
+    for ($i = 11; $i >= 0; $i--) {
+        $month = Carbon::now()->subMonths($i);
+        $monthKey = $month->year . '-' . str_pad($month->month, 2, '0', STR_PAD_LEFT);
+        $labels[] = 'Tháng ' . $month->month . ' ' . $month->year;
+        $data[] = $monthlyRevenues[$monthKey] ?? 0;
     }
 
+    $pendingApprovalCount = Product::where('supplier_id', $supplierId)->where('is_approved', false)->count();
+
+    return view('supplier.dashboard', compact(
+        'totalProducts',
+        'pendingOrders',
+        'monthlyRevenue',
+        'labels',
+        'data',
+        'pendingApprovalCount'
+    ));
+}
     // Danh sách sản phẩm
     public function products(Request $request)
     {
@@ -391,33 +410,70 @@ class SupplierController extends Controller
         return view('supplier.requests.show', compact('request'));
     }
 
-    public function processRequest(Request $request, $id)
-    {
-        $requestModel = RequestModel::where('supplier_id', Auth::id())->findOrFail($id);
+public function processRequest(Request $request, $id)
+{
+    $requestModel = RequestModel::where('supplier_id', Auth::id())->findOrFail($id);
 
-        $validated = $request->validate([
-            'status' => 'required|in:accepted,rejected',
-            'note' => 'nullable|string|max:255'
+    $validated = $request->validate([
+        'status' => 'required|in:accepted,rejected',
+        'note' => 'nullable|string|max:255'
+    ]);
+
+    \DB::beginTransaction();
+    try {
+        $note = $validated['note'] ?? null;
+        $message = "Yêu cầu #{$requestModel->request_number} đã được {$validated['status']} với ghi chú: " . ($note ?? 'Không có');
+        $requestModel->update([
+            'status' => $validated['status'],
+            'note_from_supplier' => $note,
+            'updated_at' => now()
         ]);
+        $requestModel->replies()->create(['user_id' => Auth::id(), 'message' => $message]);
 
-        \DB::beginTransaction();
-        try {
-            $requestModel->update(array_merge($validated, ['updated_at' => now(), 'note_from_supplier' => $validated['note']])); // Cập nhật note_from_supplier
-
-            // Lấy employee_id từ request
-            $employeeId = $requestModel->employee_id;
-
-            // Gửi thông báo cho nhân viên nếu có employee_id
-            if ($employeeId) {
-                $this->notificationService->notifyEmployeeRequestResponse($requestModel, $employeeId);
-            }
-
-            \DB::commit();
-            return redirect()->route('supplier.requests')->with('success', 'Xử lý yêu cầu thành công!');
-        } catch (\Exception $e) {
-            \DB::rollBack();
-            \Log::error('Lỗi xử lý yêu cầu: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Có lỗi xảy ra khi xử lý yêu cầu.');
+        if ($requestModel->employee_id) {
+            $this->notificationService->createNotification(
+                $requestModel->employee_id,
+                'request_supplier_reply',
+                'Nhà cung cấp phản hồi yêu cầu',
+                "Nhà cung cấp {$requestModel->supplier->name} đã {$validated['status']} yêu cầu #{$requestModel->request_number}: {$message}",
+                ['request_id' => $requestModel->id],
+                $requestModel->id,
+                'RequestModel'
+            );
         }
+
+        \DB::commit();
+        return redirect()->route('supplier.requests')->with('success', 'Xử lý yêu cầu thành công!');
+    } catch (\Exception $e) {
+        \DB::rollBack();
+        \Log::error('Lỗi xử lý yêu cầu: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Lỗi chi tiết: ' . $e->getMessage());
     }
+}
+
+public function replyRequest(Request $request, $id)
+{
+    $requestModel = RequestModel::where('supplier_id', Auth::id())->findOrFail($id);
+    if ($requestModel->status === 'closed') {
+        return redirect()->back()->with('error', 'Yêu cầu đã đóng, không thể phản hồi!');
+    }
+
+    $validated = $request->validate(['message' => 'required|string|max:1000']);
+    $requestModel->replies()->create(['user_id' => Auth::id(), 'message' => $validated['message']]);
+
+    if ($requestModel->employee_id) {
+        $this->notificationService->createNotification(
+            $requestModel->employee_id,
+            'request_supplier_reply',
+            'Nhà cung cấp phản hồi yêu cầu',
+            "Nhà cung cấp {$requestModel->supplier->name} đã phản hồi yêu cầu #{$requestModel->request_number}: {$validated['message']}",
+            ['request_id' => $requestModel->id],
+            $requestModel->id,
+            'RequestModel'
+        );
+    }
+
+    return redirect()->route('supplier.requests.show', $requestModel->id)->with('success', 'Phản hồi đã được gửi!');
+}
+
 }

@@ -18,6 +18,23 @@
             @if(session('error'))
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
+
+            <!-- Thêm trước bảng danh sách ticket -->
+            @forelse ($notifications as $notification)
+                <div class="alert alert-info mb-2">
+                    {{ $notification->message }}
+                    <a href="{{ route('customer.showSupport', $notification->related_id) }}" class="btn btn-sm btn-primary">Xem ngay</a>
+                    <form action="{{ route('notifications.mark-as-read', $notification->id) }}" method="POST" style="display:inline;" class="d-none">
+                        @csrf
+                        @method('PATCH')
+                    </form>
+                </div>
+            @empty
+                @if (!$tickets->isEmpty())
+                    <p class="text-muted mb-3">Không có thông báo mới.</p>
+                @endif
+            @endforelse
+
             <a href="{{ route('customer.createSupport') }}" class="btn btn-primary mb-3"><i class="fas fa-plus"></i> Tạo yêu cầu mới</a>
             <table class="table table-striped">
                 <thead>
@@ -58,7 +75,6 @@
                     @empty
                     <tr><td colspan="5" class="text-center">Chưa có yêu cầu nào.</td></tr>
                     @endforelse
-
                 </tbody>
             </table>
             {{ $tickets->links() }}

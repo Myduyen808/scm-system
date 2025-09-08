@@ -52,15 +52,15 @@
                     <h5 class="card-title">Sao lưu Database</h5>
                 </div>
                 <div class="card-body">
-                    <form action="{{ route('admin.settings.backup') }}" method="POST">
+                    <form action="{{ route('admin.settings.backup') }}" method="POST" onsubmit="return confirm('Bạn có chắc muốn sao lưu database? Hành động này có thể mất vài phút!');">
                         @csrf
                         <button type="submit" class="btn btn-warning">
                             <i class="fas fa-database"></i> Sao lưu database
                         </button>
                     </form>
+                    <p class="text-muted mt-2">Lưu ý: Sao lưu sẽ tạo file backup trong thư mục storage. Vui lòng kiểm tra sau khi hoàn tất.</p>
                 </div>
             </div>
-
         </div>
     </div>
 </div>

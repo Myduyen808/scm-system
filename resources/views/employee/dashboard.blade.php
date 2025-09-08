@@ -79,7 +79,7 @@
                     <i class="fas fa-truck-loading fa-4x text-secondary mb-3"></i>
                     <h5 class="card-title">Yêu cầu nhập hàng</h5>
                     <p class="card-text">Gửi yêu cầu nhập hàng cho nhà cung cấp</p>
-                    <a href="{{ route('employee.stock.request') }}" class="btn btn-secondary btn-block">
+                    <a href="{{ route('employee.requests') }}" class="btn btn-secondary btn-block">
                         <i class="fas fa-arrow-right"></i> Gửi yêu cầu
                     </a>
                 </div>

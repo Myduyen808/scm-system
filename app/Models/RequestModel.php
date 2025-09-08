@@ -80,4 +80,8 @@ class RequestModel extends Model
             default => 'Không xác định'
         };
     }
+    public function replies()
+    {
+        return $this->hasMany(RequestReply::class, 'request_id');
+    }
 }

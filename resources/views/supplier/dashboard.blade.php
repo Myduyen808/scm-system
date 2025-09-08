@@ -85,24 +85,24 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4 mb-4 fade-in">
-        <div class="card bg-warning text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4>{{ $pendingApprovalCount ?? 0 }}</h4>
-                        <p class="mb-0">Sản phẩm chờ duyệt</p>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-hourglass-half fa-2x"></i>
+
+    <div class="row">
+        <div class="col-md-4 mb-4 fade-in">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ $pendingApprovalCount ?? 0 }}</h4>
+                            <p class="mb-0">Sản phẩm chờ duyệt</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-hourglass-half fa-2x"></i>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Supplier Statistics -->
-    <div class="row">
         <div class="col-md-4 mb-4 fade-in">
             <div class="card bg-primary text-white">
                 <div class="card-body">
@@ -158,7 +158,7 @@
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Doanh thu theo tháng</h5>
-                    <div style="height: 250px;">
+                    <div style="height: 300px;">
                         <canvas id="revenueChart"></canvas>
                     </div>
                 </div>
@@ -171,32 +171,69 @@
 @section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    const ctxRevenue = document.getElementById('revenueChart').getContext('2d');
-    new Chart(ctxRevenue, {
-        type: 'line',
-        data: {
-            labels: @json($labels ?? []), // Sử dụng nhãn từ controller, mặc định rỗng nếu không có
-            datasets: [{
-                label: 'Doanh thu (VND)',
-                data: @json($revenueData ?? []), // Sử dụng dữ liệu doanh thu từ controller, mặc định rỗng
-                borderColor: '#36A2EB',
-                backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: { display: true, text: 'Doanh thu (VND)' },
-                    ticks: { callback: function(value) { return value.toLocaleString('vi-VN') + ' ₫'; } }
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctxRevenue = document.getElementById('revenueChart').getContext('2d');
+        const labels = @json($labels ?? []);
+        const data = @json($data ?? []);
+
+        // Kiểm tra dữ liệu rỗng
+        if (labels.length === 0 || data.length === 0) {
+            labels.push('Không có dữ liệu');
+            data.push(0);
+        }
+
+        new Chart(ctxRevenue, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Doanh thu (VND)',
+                    data: data,
+                    borderColor: '#36A2EB',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += '₫' + context.parsed.y.toLocaleString('vi-VN');
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Doanh thu (VND)' },
+                        ticks: {
+                            callback: function(value) {
+                                return '₫' + value.toLocaleString('vi-VN');
+                            }
+                        }
+                    },
+                    x: {
+                        title: { display: true, text: 'Tháng' }
+                    }
                 }
             }
-        }
+        });
     });
 </script>
 @endsection

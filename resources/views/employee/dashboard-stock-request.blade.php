@@ -18,7 +18,7 @@
         </div>
     @endif
 
-    <form action="{{ route('employee.send.stock.request') }}" method="POST">
+    <form action="{{ route('employee.createStockRequest') }}" method="POST">
         @csrf
         <div class="mb-3">
             <label for="product_id" class="form-label">Sản phẩm cần nhập</label>

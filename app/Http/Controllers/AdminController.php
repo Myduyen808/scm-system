@@ -728,6 +728,21 @@ class AdminController extends Controller
             'status' => 'assigned', // Đảm bảo giá trị là chuỗi hợp lệ
         ]);
 
+        // Gửi thông báo cho nhân viên được phân công
+        $employee = \App\Models\User::find($request->assigned_to);
+        if ($employee) {
+            $notificationService = app(\App\Services\NotificationService::class); // Giả định dùng service
+            $notificationService->createNotification(
+                $employee->id,
+                'ticket_assigned',
+                'Bạn được phân công ticket',
+                "Bạn đã được phân công ticket #{$ticket->id} với chủ đề '{$ticket->subject}'. Xem chi tiết tại: " . route('employee.tickets.show', $ticket->id),
+                ['ticket_id' => $ticket->id],
+                $ticket->id,
+                'Ticket'
+            );
+        }
+
         return redirect()->route('admin.tickets')->with('success', 'Phân công ticket thành công!');
     }
 

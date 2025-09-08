@@ -767,7 +767,10 @@ public function paypalCreate(Request $request, PaypalDirectService $paypal)
 
         \Log::info('Tickets for user ' . Auth::id() . ': ' . $tickets->count()); // Debug
 
-        return view('customer.support.index', compact('tickets'));
+        // Lấy thông báo chưa đọc liên quan đến ticket
+        $notifications = Auth::user()->notifications()->where('type', 'ticket_employee_reply')->where('is_read', false)->latest()->limit(5)->get();
+
+        return view('customer.support.index', compact('tickets', 'notifications'));
     }
 
     public function promotions()

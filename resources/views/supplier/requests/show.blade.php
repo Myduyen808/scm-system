@@ -34,6 +34,21 @@
             <p><strong>Ngày tạo:</strong> {{ $request->created_at?->format('d/m/Y H:i') ?? 'Chưa có' }}</p>
             <p><strong>Ghi chú từ nhân viên:</strong> {{ $request->employee_note ?? 'Chưa có' }}</p>
 
+            {{-- Lịch sử chat --}}
+            <h5 class="mt-4">Lịch sử phản hồi</h5>
+            @if ($request->replies->count() > 0)
+                @foreach($request->replies as $reply)
+                    <div class="alert alert-{{ $reply->user_id === Auth::id() ? 'primary' : 'success' }} mb-2">
+                        <strong>{{ $reply->user_id === Auth::id() ? 'Bạn:' : 'Nhân viên:' }}</strong> {{ $reply->message }}
+                        <br>
+                        <small>{{ $reply->created_at->format('d/m/Y H:i') }}</small>
+                    </div>
+                @endforeach
+            @else
+                <div class="alert alert-info">Chưa có phản hồi nào.</div>
+            @endif
+
+            {{-- Form xử lý yêu cầu (nếu pending) --}}
             @if($request->status == 'pending')
                 <form action="{{ route('supplier.requests.process', $request->id) }}" method="POST" class="mt-3">
                     @csrf
@@ -52,6 +67,26 @@
                 </form>
             @else
                 <p><strong>Phản hồi từ nhà cung cấp:</strong> {{ $request->note_from_supplier ?? 'Chưa có' }}</p>
+            @endif
+
+            {{-- Form gửi phản hồi (nếu không closed) --}}
+            @if (!in_array($request->status, ['closed']))
+                <div class="mt-4">
+                    <h6>Gửi phản hồi thêm</h6>
+                    <form action="{{ route('supplier.requests.reply', $request->id) }}" method="POST">
+                        @csrf
+                        <div class="mb-3">
+                            <label for="message" class="form-label">Phản hồi:</label>
+                            <textarea name="message" id="message" class="form-control" rows="3" placeholder="Nhập phản hồi cho nhân viên" required></textarea>
+                            <div class="form-text">Tối đa 1000 ký tự</div>
+                        </div>
+                        <button type="submit" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-paper-plane"></i> Gửi phản hồi
+                        </button>
+                    </form>
+                </div>
+            @else
+                <div class="alert alert-warning">Yêu cầu đã đóng, không thể gửi phản hồi thêm.</div>
             @endif
 
             <a href="{{ route('supplier.requests') }}" class="btn btn-secondary mt-3"><i class="fas fa-arrow-left"></i> Quay lại</a>

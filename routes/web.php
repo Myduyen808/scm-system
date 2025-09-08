@@ -137,10 +137,8 @@ Route::middleware('auth')->group(function () {
 
         });
 
-
 // Employee routes
-// Employee routes
-Route::middleware(['auth', 'role:employee'])->prefix('employee')->group(function () {
+Route::middleware(['auth', 'role:employee'])->group(function () {
     Route::get('/dashboard', [EmployeeController::class, 'dashboard'])->name('employee.dashboard');
     Route::get('/inventory', [EmployeeController::class, 'inventory'])->name('employee.inventory');
     Route::patch('/inventory/{product}', [EmployeeController::class, 'updateInventory'])->name('employee.inventory.update');
@@ -154,8 +152,10 @@ Route::middleware(['auth', 'role:employee'])->prefix('employee')->group(function
     Route::post('/orders/{order}/cancel', [EmployeeController::class, 'cancelOrder'])->name('employee.orders.cancel');
     Route::get('/requests', [EmployeeController::class, 'requests'])->name('employee.requests');
     Route::post('/requests/{request}/process', [EmployeeController::class, 'processRequest'])->name('employee.requests.process');
-    Route::post('/requests/{request}/process', [EmployeeController::class, 'processRequest'])->name('employee.process.request');
-
+    Route::post('/requests/{request}/feedback', [EmployeeController::class, 'sendFeedback'])->name('employee.requests.feedback');
+    Route::get('/requests/create', [EmployeeController::class, 'showStockRequestForm'])->name('employee.createStockRequest');
+    Route::post('/requests', [EmployeeController::class, 'sendStockRequest'])->name('employee.sendStockRequest');
+    Route::get('/requests/{request}', [EmployeeController::class, 'showRequest'])->name('employee.requests.show');
     Route::get('/support', [EmployeeController::class, 'support'])->name('employee.support');
     Route::get('/support/{ticket}/reply', [EmployeeController::class, 'replySupportTicket'])->name('employee.support.reply');
     Route::post('/support/{ticket}/reply', [EmployeeController::class, 'storeSupportReply'])->name('employee.support.store-reply');
@@ -163,13 +163,10 @@ Route::middleware(['auth', 'role:employee'])->prefix('employee')->group(function
     Route::get('/reviews/{review}', [EmployeeController::class, 'showReview'])->name('employee.reviews.show');
     Route::delete('/reviews/{review}', [EmployeeController::class, 'destroyReview'])->name('employee.reviews.delete');
 
-    Route::get('/requests/{request}', [EmployeeController::class, 'showRequest'])->name('employee.requests.show');
-    Route::post('/requests/{request}/feedback', [EmployeeController::class, 'sendFeedback'])->name('employee.requests.feedback');
-    // ... (các route khác)
-    Route::get('/stock-request', [EmployeeController::class, 'showStockRequestForm'])->name('employee.stock.request');
-    Route::post('/stock-request', [EmployeeController::class, 'sendStockRequest'])->name('employee.stock.request.send');
+    Route::post('/employee/requests/{id}/reply', [EmployeeController::class, 'replyRequest'])->name('employee.requests.reply');
+        // Route gửi phản hồi/chat
+    Route::post('/requests/{request}/reply', [EmployeeController::class, 'sendFeedback'])->name('employee.sendFeedback');
 
-    Route::post('/employee/stock-request', [EmployeeController::class, 'sendStockRequest'])->name('employee.send.stock.request');
 });
 
 // Routes cho khách hàng (customer)
@@ -244,8 +241,9 @@ Route::middleware(['auth', 'role:supplier'])->group(function () {
     Route::get('/supplier/orders/{id}', [SupplierController::class, 'showOrder'])->name('supplier.orders.show');
 
     Route::get('/supplier/requests', [SupplierController::class, 'requests'])->name('supplier.requests');
-    Route::post('/requests/{id}/process', [SupplierController::class, 'processRequest'])->name('supplier.requests.process');
-    Route::get('supplier/requests/{id}', [SupplierController::class, 'showRequest'])->name('supplier.requests.show');
+    Route::get('/supplier/requests/{id}', [SupplierController::class, 'showRequest'])->name('supplier.requests.show');
+    Route::post('/supplier/requests/{id}/process', [SupplierController::class, 'processRequest'])->name('supplier.requests.process');
+
 
 
     Route::get('/supplier/products/report', [SupplierController::class, 'productReport'])->name('supplier.products.report');
@@ -254,6 +252,7 @@ Route::middleware(['auth', 'role:supplier'])->group(function () {
     Route::post('/supplier/orders/{id}/status', [SupplierController::class, 'updateOrderStatus'])->name('supplier.orders.updateStatus');
 
 
+    Route::post('/supplier/requests/{id}/reply', [SupplierController::class, 'replyRequest'])->name('supplier.requests.reply');
 });
 
 
@@ -333,3 +332,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/notifications/unread', [NotificationController::class, 'getUnreadNotifications'])->name('notifications.unread')->middleware('auth');
 });
 
+Route::patch('/notifications/{id}/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read')->middleware('auth');
+
+use App\Http\Controllers\Admin\SettingsController;
+
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/admin/settings', [SettingsController::class, 'index'])->name('admin.settings');
+    Route::post('/admin/settings/update', [SettingsController::class, 'update'])->name('admin.settings.update');
+    Route::post('/admin/settings/backup', [SettingsController::class, 'backup'])->name('admin.settings.backup');
+});
