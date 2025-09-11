@@ -13,7 +13,7 @@ class Product extends Model
 
     protected $fillable = [
         'name', 'description', 'regular_price', 'sale_price',
-        'image', 'sku', 'stock_quantity', 'is_active', 'supplier_id', 'current_price', 'is_approved'
+        'image', 'sku', 'stock_quantity', 'is_active', 'supplier_id', 'current_price', 'is_approved', 'season',
     ];
 
     protected $casts = [

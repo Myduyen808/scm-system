@@ -56,6 +56,17 @@
                     @error('stock_quantity') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
                 <div class="mb-3">
+                    <label class="form-label">Mùa vụ (season)</label>
+                        <select name="season" class="form-control @error('season') is-invalid @enderror">
+                            <option value="">-- Chọn mùa --</option>
+                            <option value="spring" {{ old('season') == 'spring' ? 'selected' : '' }}>Mùa xuân</option>
+                            <option value="summer" {{ old('season') == 'summer' ? 'selected' : '' }}>Mùa hè</option>
+                            <option value="autumn" {{ old('season') == 'autumn' ? 'selected' : '' }}>Mùa thu</option>
+                            <option value="winter" {{ old('season') == 'winter' ? 'selected' : '' }}>Mùa đông</option>
+                        </select>
+                        @error('season') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
+                <div class="mb-3">
                     <label class="form-label">Hình ảnh</label>
                     <input type="file" name="image" class="form-control @error('image') is-invalid @enderror">
                     @error('image') <div class="invalid-feedback">{{ $message }}</div> @enderror

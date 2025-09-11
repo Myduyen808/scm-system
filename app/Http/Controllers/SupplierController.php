@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use App\Models\Inventory;
 use App\Services\NotificationService;
+use App\Models\InternalRequest;
+use App\Models\User;
+
+
 
 class SupplierController extends Controller
 {
@@ -58,9 +62,6 @@ public function dashboard()
     // Tạo labels và data cho 12 tháng gần nhất
     $labels = [];
     $data = [];
-    $currentMonth = Carbon::now()->month;
-    $currentYear = Carbon::now()->year;
-
     for ($i = 11; $i >= 0; $i--) {
         $month = Carbon::now()->subMonths($i);
         $monthKey = $month->year . '-' . str_pad($month->month, 2, '0', STR_PAD_LEFT);
@@ -68,15 +69,38 @@ public function dashboard()
         $data[] = $monthlyRevenues[$monthKey] ?? 0;
     }
 
+    // Thêm số lượng sản phẩm theo mùa (chỉ cho supplier ID 4)
+    $seasonCounts = [];
+    $seasonLabels = [];
+    $seasonData = [];
+    if ($supplierId == 4) {
+        $seasonCounts = Product::where('supplier_id', $supplierId)
+            ->select('season', \DB::raw('COUNT(*) as count'))
+            ->groupBy('season')
+            ->having('count', '>=', 1)
+            ->pluck('count', 'season')
+            ->all();
+
+        $allSeasons = ['spring', 'summer', 'autumn', 'winter'];
+        foreach ($allSeasons as $season) {
+            if (isset($seasonCounts[$season]) && $seasonCounts[$season] >= 1) {
+                $seasonLabels[] = ucfirst(str_replace('_', ' ', $season));
+                $seasonData[] = max(ceil($seasonCounts[$season]), 1);
+            }
+        }
+    }
+
     $pendingApprovalCount = Product::where('supplier_id', $supplierId)->where('is_approved', false)->count();
 
+    // Thêm thông tin yêu cầu nội bộ
+    $pendingInternalRequests = InternalRequest::where('supplier_id', $supplierId)
+        ->where('status', 'pending')
+        ->count();
+
     return view('supplier.dashboard', compact(
-        'totalProducts',
-        'pendingOrders',
-        'monthlyRevenue',
-        'labels',
-        'data',
-        'pendingApprovalCount'
+        'totalProducts', 'pendingOrders', 'monthlyRevenue', 'labels', 'data',
+        'pendingApprovalCount', 'seasonCounts', 'seasonLabels', 'seasonData',
+        'pendingInternalRequests'
     ));
 }
     // Danh sách sản phẩm
@@ -85,8 +109,8 @@ public function dashboard()
         $query = Product::where('supplier_id', Auth::id())
             ->with(['orderItems' => function ($query) {
                 $query->whereHas('order', function ($q) {
-                    $q->where('status', 'delivered'); // Đảm bảo dùng 'delivered'
-                })->with('order'); // Tải thêm thông tin order nếu cần
+                    $q->where('status', 'delivered');
+                })->with('order');
             }])
             ->with('inventory');
 
@@ -96,10 +120,11 @@ public function dashboard()
                 ->orWhere('sku', 'like', '%' . $request->input('search') . '%');
             });
         }
+        if ($request->input('season')) {
+            $query->where('season', $request->input('season'));
+        }
 
         $products = $query->orderBy('created_at', 'desc')->paginate(10);
-
-        // Debug log để kiểm tra dữ liệu
         \Log::info('Products with OrderItems: ', $products->toArray());
 
         return view('supplier.products.index', compact('products'));
@@ -112,58 +137,63 @@ public function dashboard()
     }
 
 // Sửa method storeProduct
-    public function storeProduct(Request $request)
-    {
-        $regularPrice = (float) $request->input('regular_price', 0);
+public function storeProduct(Request $request)
+{
+    $regularPrice = (float) $request->input('regular_price', 0);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'regular_price' => 'required|numeric|min:0',
-            'sale_price' => 'nullable|numeric|min:0|max:' . $regularPrice,
-            'sale_percent' => 'nullable|numeric|min:0|max:100',
-            'sku' => 'required|string|unique:products',
-            'stock_quantity' => 'required|integer|min:0',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'is_active' => 'boolean',
+    // Validate input
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'description' => 'nullable|string',
+        'regular_price' => 'required|numeric|min:0',
+        'sale_price' => 'nullable|numeric|min:0|max:' . $regularPrice,
+        'sale_percent' => 'nullable|numeric|min:0|max:100',
+        'sku' => 'required|string|unique:products',
+        'stock_quantity' => 'required|integer|min:0',
+        'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        'is_active' => 'boolean',
+        'season' => 'nullable|string|in:spring,summer,autumn,winter',
+    ]);
+
+    $validated['supplier_id'] = Auth::id();
+    $validated['season'] = $request->input('season'); // fix: đảm bảo season được lưu
+
+    // Xử lý upload hình ảnh
+    if ($request->hasFile('image')) {
+        $validated['image'] = $request->file('image')->store('products', 'public');
+    }
+
+    // Tính giá sale
+    $salePriceInput = $request->filled('sale_price') ? (float) $request->input('sale_price') : null;
+    $salePercent = (float) $request->input('sale_percent', 0);
+
+    if ($salePercent > 0) {
+        $salePrice = $regularPrice * (1 - $salePercent / 100);
+    } else {
+        $salePrice = $salePriceInput;
+    }
+
+    if ($salePrice !== null && $salePrice >= $regularPrice) {
+        return back()->with('error', 'Giá sale phải nhỏ hơn giá thường!')->withInput();
+    }
+
+    $validated['sale_price'] = $salePrice;
+    $validated['sale_percent'] = $salePercent;
+    $validated['current_price'] = $salePrice && $salePrice > 0 ? $salePrice : $regularPrice;
+
+    // Lưu sản phẩm và inventory
+    \DB::beginTransaction();
+    try {
+        $product = Product::create($validated);
+
+        Inventory::create([
+            'product_id' => $product->id,
+            'stock' => $validated['stock_quantity'],
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
-        $validated['supplier_id'] = Auth::id();
-
-        if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('products', 'public');
-        }
-
-        // Xử lý sale_price theo VND hoặc %
-        $salePriceInput = $request->filled('sale_price') ? (float) $request->input('sale_price') : null;
-        $salePercent = (float) $request->input('sale_percent', 0);
-
-        if ($salePercent > 0) {
-            $salePrice = $regularPrice * (1 - $salePercent / 100);
-        } else {
-            $salePrice = $salePriceInput;
-        }
-
-        if ($salePrice !== null && $salePrice >= $regularPrice) {
-            return back()->with('error', 'Giá sale phải nhỏ hơn giá thường!')->withInput();
-        }
-
-        $validated['sale_price'] = $salePrice;
-        $validated['sale_percent'] = $salePercent;
-        $validated['current_price'] = $salePrice && $salePrice > 0 ? $salePrice : $regularPrice;
-
-        \DB::beginTransaction();
-        try {
-            $product = Product::create($validated);
-
-            Inventory::create([
-                'product_id' => $product->id,
-                'stock' => $validated['stock_quantity'],
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            // Gửi thông báo cho tất cả admin
+        // Gửi thông báo cho admin
         $admins = \App\Models\User::role('admin')->get();
         foreach ($admins as $admin) {
             $this->notificationService->createNotification(
@@ -177,13 +207,13 @@ public function dashboard()
             );
         }
 
-            \DB::commit();
-            return redirect()->route('supplier.products')->with('success', 'Sản phẩm đã được thêm thành công!');
-        } catch (\Exception $e) {
-            \DB::rollBack();
-            return back()->with('error', 'Có lỗi xảy ra khi thêm sản phẩm: ' . $e->getMessage())->withInput();
-        }
+        \DB::commit();
+        return redirect()->route('supplier.products')->with('success', 'Sản phẩm đã được thêm thành công!');
+    } catch (\Exception $e) {
+        \DB::rollBack();
+        return back()->with('error', 'Có lỗi xảy ra khi thêm sản phẩm: ' . $e->getMessage())->withInput();
     }
+}
 
 // Sửa method updateProduct
     public function updateProduct(Request $request, $id)
@@ -475,5 +505,74 @@ public function replyRequest(Request $request, $id)
 
     return redirect()->route('supplier.requests.show', $requestModel->id)->with('success', 'Phản hồi đã được gửi!');
 }
+
+    // Form yêu cầu nội bộ
+public function supplierInternalRequestForm()
+{
+    if (!Auth::user()->hasRole('supplier') || !Auth::user()->can('create internal requests')) {
+        abort(403);
+    }
+    $products = Product::where('supplier_id', Auth::id())->get();
+    $internalRequests = InternalRequest::with(['employee', 'product'])
+        ->where('supplier_id', Auth::id())
+        ->get();
+    return view('supplier.internal_requests.form', compact('products', 'internalRequests'));
+}
+
+public function submitSupplierInternalRequest(Request $request)
+{
+    if (!Auth::user()->hasRole('supplier')) {
+        abort(403);
+    }
+
+    $validated = $request->validate([
+        'product_id' => 'required|exists:products,id',
+        'quantity' => 'required|integer|min:1',
+        'purpose' => 'required|in:employee_trial,event_marketing',
+        'note' => 'nullable|string|max:500',
+    ]);
+
+    $product = Product::findOrFail($validated['product_id']);
+    if ($product->supplier_id != Auth::id()) {
+        return redirect()->back()->with('error', 'Sản phẩm không thuộc bạn.');
+    }
+
+    $requestData = [
+        'supplier_id' => Auth::id(),
+        'product_id' => $validated['product_id'],
+        'quantity' => $validated['quantity'],
+        'description' => "Yêu cầu nội bộ từ nhà cung cấp (Mục đích: {$validated['purpose']})",
+        'employee_note' => $validated['note'] ?? '',
+        'status' => 'pending',
+        'request_type' => 'supplier',
+        'created_at' => now(),
+        'updated_at' => now(),
+        'request_number' => 'SUP-' . str_pad(InternalRequest::max('id') + 1, 3, '0', STR_PAD_LEFT),
+    ];
+
+    try {
+        $internalRequest = InternalRequest::create($requestData);
+
+        // Gửi thông báo cho tất cả admin
+        $admins = User::role('admin')->get();
+        foreach ($admins as $admin) {
+            $this->notificationService->createNotification(
+                $admin->id,
+                'new_supplier_request',
+                'Yêu cầu nội bộ từ nhà cung cấp',
+                "Nhà cung cấp ID {$internalRequest->supplier_id} gửi yêu cầu #$internalRequest->request_number (Mục đích: {$validated['purpose']}).",
+                ['request_id' => $internalRequest->id],
+                $internalRequest->id,
+                'InternalRequest'
+            );
+        }
+
+        return redirect()->route('supplier.dashboard')->with('success', 'Yêu cầu đã gửi!');
+    } catch (\Exception $e) {
+        Log::error('Error: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Lỗi xảy ra.')->withInput();
+    }
+}
+
 
 }

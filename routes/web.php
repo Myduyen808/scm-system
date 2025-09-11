@@ -135,6 +135,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/reviews/{review}', [ReviewController::class, 'show'])->name('reviews.show');
     Route::delete('/reviews/{review}', [ReviewController::class, 'destroy'])->name('reviews.delete');
 
+    // quản lý nội bộ
+    Route::get('/internal-requests', [AdminController::class, 'internalRequests'])->name('internalRequests');
+    Route::post('/internal-requests/{request}/approve', [AdminController::class, 'approveRequest'])->name('internalRequests.approve');
+    Route::post('/internal-requests/{request}/reject', [AdminController::class, 'rejectRequest'])->name('internalRequests.reject');
+
         });
 
 // Employee routes
@@ -150,12 +155,12 @@ Route::middleware(['auth', 'role:employee'])->group(function () {
     Route::patch('/orders/{order}/status', [EmployeeController::class, 'updateOrderStatus'])->name('employee.orders.update-status');
     Route::get('/orders/{order}', [EmployeeController::class, 'showOrder'])->name('employee.orders.show');
     Route::post('/orders/{order}/cancel', [EmployeeController::class, 'cancelOrder'])->name('employee.orders.cancel');
-    Route::get('/requests', [EmployeeController::class, 'requests'])->name('employee.requests');
+    // Route::get('/requests', [EmployeeController::class, 'requests'])->name('employee.requests');
     Route::post('/requests/{request}/process', [EmployeeController::class, 'processRequest'])->name('employee.requests.process');
     Route::post('/requests/{request}/feedback', [EmployeeController::class, 'sendFeedback'])->name('employee.requests.feedback');
-    Route::get('/requests/create', [EmployeeController::class, 'showStockRequestForm'])->name('employee.createStockRequest');
+    // Route::get('/requests/create', [EmployeeController::class, 'showStockRequestForm'])->name('employee.createStockRequest');
     Route::post('/requests', [EmployeeController::class, 'sendStockRequest'])->name('employee.sendStockRequest');
-    Route::get('/requests/{request}', [EmployeeController::class, 'showRequest'])->name('employee.requests.show');
+    // Route::get('/requests/{request}', [EmployeeController::class, 'showRequest'])->name('employee.requests.show');
     Route::get('/support', [EmployeeController::class, 'support'])->name('employee.support');
     Route::get('/support/{ticket}/reply', [EmployeeController::class, 'replySupportTicket'])->name('employee.support.reply');
     Route::post('/support/{ticket}/reply', [EmployeeController::class, 'storeSupportReply'])->name('employee.support.store-reply');
@@ -166,6 +171,20 @@ Route::middleware(['auth', 'role:employee'])->group(function () {
     Route::post('/employee/requests/{id}/reply', [EmployeeController::class, 'replyRequest'])->name('employee.requests.reply');
         // Route gửi phản hồi/chat
     Route::post('/requests/{request}/reply', [EmployeeController::class, 'sendFeedback'])->name('employee.sendFeedback');
+
+// Tạo yêu cầu mới
+Route::get('/requests/create', [EmployeeController::class, 'showStockRequestForm'])->name('employee.createStockRequest');
+
+// Yêu cầu nội bộ
+Route::get('/requests/internal', [EmployeeController::class, 'showInternalRequestForm'])->name('employee.internalRequestForm');
+
+// Danh sách tất cả yêu cầu
+Route::get('/requests', [EmployeeController::class, 'requests'])->name('employee.requests');
+
+// Xem chi tiết 1 yêu cầu
+Route::get('/requests/{request}', [EmployeeController::class, 'showRequest'])->name('employee.requests.show');
+
+    Route::post('/requests/internal', [EmployeeController::class, 'sendInternalRequest'])->name('employee.sendInternalRequest');
 
 });
 
@@ -341,3 +360,31 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/admin/settings/update', [SettingsController::class, 'update'])->name('admin.settings.update');
     Route::post('/admin/settings/backup', [SettingsController::class, 'backup'])->name('admin.settings.backup');
 });
+
+
+//nhà cung cấp muốn tiêu thụ nội bộ
+Route::middleware(['auth', 'role:supplier'])->prefix('supplier')->group(function () {
+    Route::get('/internal-requests/form', [SupplierController::class, 'supplierInternalRequestForm'])->name('supplier.internalRequestForm');
+    Route::post('/internal-requests/submit', [SupplierController::class, 'submitSupplierInternalRequest'])->name('supplier.submitInternalRequest');
+});
+
+Route::middleware(['auth', 'role:employee'])->prefix('employee')->group(function () {
+    Route::get('/requests/internal', [EmployeeController::class, 'showInternalRequestForm'])->name('employee.showInternalRequestForm');
+    Route::post('/requests/internal', [EmployeeController::class, 'sendInternalRequest'])->name('employee.sendInternalRequest');
+});
+
+use App\Http\Controllers\ChatbotController;
+
+Route::match(['get', 'post', 'options'], '/botman', [ChatbotController::class, 'handle'])
+    ->name('botman.handle');
+Route::get('/chat', function () {
+    return view('chat'); // Trả về view chat.blade.php
+});
+
+use App\Http\Controllers\SentimentController;
+
+Route::post('/sentiment/analyze', [SentimentController::class, 'analyze']);
+
+// TÍCH HỢP PHÂN TÍCH CẢM XÚCcd D:\scm-system\python-sentiment
+
+

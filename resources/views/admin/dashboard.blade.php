@@ -174,8 +174,22 @@
             </div>
         </div>
         @endcan
-    </div>
 
+        @can('manage internal requests')
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-info">
+                <div class="card-body text-center">
+                    <i class="fas fa-file-alt fa-3x text-info mb-3"></i>
+                    <h5 class="card-title">Quản lý yêu cầu nội bộ</h5>
+                    <p class="card-text">Xem, duyệt và từ chối các yêu cầu của nhân viên và nhà cung cấp</p>
+                    <a href="{{ route('admin.internalRequests') }}" class="btn btn-info btn-block">
+                        <i class="fas fa-arrow-right"></i> Xem tất cả
+                    </a>
+                </div>
+            </div>
+        </div>
+        @endcan
+    </div>
     <!-- Statistics Cards -->
     <div class="row mt-4">
         <div class="col-md-3 mb-4">

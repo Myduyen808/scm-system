@@ -84,6 +84,20 @@
                 </div>
             </div>
         </div>
+
+        <!-- Thêm thẻ mới cho Yêu cầu nội bộ -->
+        <div class="col-md-4 mb-4 fade-in">
+            <div class="card border-secondary">
+                <div class="card-body text-center">
+                    <i class="fas fa-file-alt fa-3x text-secondary mb-3"></i>
+                    <h5 class="card-title">Yêu cầu Nội Bộ</h5>
+                    <p class="card-text">Tạo yêu cầu nội bộ cho nhân viên/sự kiện</p>
+                    <a href="{{ route('supplier.internalRequestForm') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-right"></i> Tạo yêu cầu
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="row">
@@ -150,6 +164,22 @@
                 </div>
             </div>
         </div>
+
+        <div class="col-md-4 mb-4 fade-in">
+            <div class="card bg-secondary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ $pendingInternalRequests ?? 0 }}</h4>
+                            <p class="mb-0">Yêu cầu nội bộ chờ duyệt</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-file-alt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Chart for Monthly Revenue -->
@@ -165,6 +195,22 @@
             </div>
         </div>
     </div>
+
+    <!-- Chart for Season Distribution (only for supplier ID 4) -->
+    @if(Auth::id() == 4)
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Phân phối sản phẩm theo mùa</h5>
+                    <div style="height: 300px;">
+                        <canvas id="seasonChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 </div>
 @endsection
 
@@ -176,7 +222,6 @@
         const labels = @json($labels ?? []);
         const data = @json($data ?? []);
 
-        // Kiểm tra dữ liệu rỗng
         if (labels.length === 0 || data.length === 0) {
             labels.push('Không có dữ liệu');
             data.push(0);
@@ -207,12 +252,8 @@
                         callbacks: {
                             label: function(context) {
                                 let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    label += '₫' + context.parsed.y.toLocaleString('vi-VN');
-                                }
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) label += '₫' + context.parsed.y.toLocaleString('vi-VN');
                                 return label;
                             }
                         }
@@ -222,18 +263,49 @@
                     y: {
                         beginAtZero: true,
                         title: { display: true, text: 'Doanh thu (VND)' },
-                        ticks: {
-                            callback: function(value) {
-                                return '₫' + value.toLocaleString('vi-VN');
-                            }
-                        }
+                        ticks: { callback: value => '₫' + value.toLocaleString('vi-VN') }
                     },
-                    x: {
-                        title: { display: true, text: 'Tháng' }
-                    }
+                    x: { title: { display: true, text: 'Tháng' } }
                 }
             }
         });
+
+        if (@json(Auth::id() == 4)) {
+            const ctxSeason = document.getElementById('seasonChart').getContext('2d');
+            const seasonLabels = @json($seasonLabels ?? []);
+            const seasonData = @json($seasonData ?? []).map(value => Math.max(Math.ceil(value), 1));
+
+            if (seasonLabels.length === 0 || seasonData.length === 0) {
+                seasonLabels.push('Không có dữ liệu');
+                seasonData.push(1);
+            }
+
+            new Chart(ctxSeason, {
+                type: 'bar',
+                data: {
+                    labels: seasonLabels,
+                    datasets: [{
+                        label: 'Số lượng sản phẩm',
+                        data: seasonData,
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'],
+                        borderColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Số lượng' },
+                            ticks: { stepSize: 1, callback: value => Number.isInteger(value) ? value : null }
+                        }
+                    }
+                }
+            });
+        }
     });
 </script>
 @endsection

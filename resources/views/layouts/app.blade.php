@@ -3,9 +3,9 @@
 
 <head>
     <meta charset="UTF-8">
+    <title>@yield('title', 'SCM System - Quản Lý Chuỗi Cung Ứng')</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'SCM System - Quản Lý Chuỗi Cung Ứng')</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
@@ -16,9 +16,7 @@
     <svg style="display: none;">
         <symbol id="icon_heart" viewBox="0 0 20 20">
             <g clip-path="url(#clip0_6_54)">
-                <path
-                    d="M18.3932 3.30806C16.218 1.13348 12.6795 1.13348 10.5049 3.30806L9.99983 3.81285L9.49504 3.30806C7.32046 1.13319 3.78163 1.13319 1.60706 3.30806C-0.523361 5.43848 -0.537195 8.81542 1.57498 11.1634C3.50142 13.3041 9.18304 17.929 9.4241 18.1248C9.58775 18.2578 9.78467 18.3226 9.9804 18.3226C9.98688 18.3226 9.99335 18.3226 9.99953 18.3223C10.202 18.3317 10.406 18.2622 10.575 18.1248C10.816 17.929 16.4982 13.3041 18.4253 11.1631C20.5371 8.81542 20.5233 5.43848 18.3932 3.30806ZM17.1125 9.98188C15.6105 11.6505 11.4818 15.0919 9.99953 16.3131C8.51724 15.0922 4.38944 11.6511 2.88773 9.98218C1.41427 8.34448 1.40044 6.01214 2.85564 4.55693C3.59885 3.81402 4.57488 3.44227 5.5509 3.44227C6.52693 3.44227 7.50295 3.81373 8.24616 4.55693L9.3564 5.66718C9.48856 5.79934 9.65516 5.87822 9.82999 5.90589C10.1137 5.96682 10.4216 5.88764 10.6424 5.66747L11.7532 4.55693C13.2399 3.07082 15.6582 3.07111 17.144 4.55693C18.5992 6.01214 18.5854 8.34448 17.1125 9.98188Z"
-                    fill="currentColor" />
+                <path d="M18.3932 3.30806C16.218 1.13348 12.6795 1.13348 10.5049 3.30806L9.99983 3.81285L9.49504 3.30806C7.32046 1.13319 3.78163 1.13319 1.60706 3.30806C-0.523361 5.43848 -0.537195 8.81542 1.57498 11.1634C3.50142 13.3041 9.18304 17.929 9.4241 18.1248C9.58775 18.2578 9.78467 18.3226 9.9804 18.3226C9.98688 18.3226 9.99335 18.3226 9.99953 18.3223C10.202 18.3317 10.406 18.2622 10.575 18.1248C10.816 17.929 16.4982 13.3041 18.4253 11.1631C20.5371 8.81542 20.5233 5.43848 18.3932 3.30806ZM17.1125 9.98188C15.6105 11.6505 11.4818 15.0919 9.99953 16.3131C8.51724 15.0922 4.38944 11.6511 2.88773 9.98218C1.41427 8.34448 1.40044 6.01214 2.85564 4.55693C3.59885 3.81402 4.57488 3.44227 5.5509 3.44227C6.52693 3.44227 7.50295 3.81373 8.24616 4.55693L9.3564 5.66718C9.48856 5.79934 9.65516 5.87822 9.82999 5.90589C10.1137 5.96682 10.4216 5.88764 10.6424 5.66747L11.7532 4.55693C13.2399 3.07082 15.6582 3.07111 17.144 4.55693C18.5992 6.01214 18.5854 8.34448 17.1125 9.98188Z" fill="currentColor" />
             </g>
             <defs>
                 <clipPath id="clip0_6_54">
@@ -159,7 +157,7 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm">
         <div class="container">
-            <a class="nav-brand" href="{{ route('home') }}">
+            <a class="navbar-brand" href="{{ route('home') }}">
                 <i class="fas fa-cube"></i> SCM System
             </a>
 
@@ -402,54 +400,52 @@
             });
         });
 
-    // Toggle Favorite
-    $('.favorite-btn').click(function(e) {
-        e.preventDefault();
-        const productId = $(this).data('product-id');
-        const isFavorite = $(this).hasClass('active');
-        const $button = $(this);
+        // Toggle Favorite
+        $('.favorite-btn').click(function(e) {
+            e.preventDefault();
+            const productId = $(this).data('product-id');
+            const isFavorite = $(this).hasClass('active');
+            const $button = $(this);
 
-        $.ajax({
-            url: `/customer/favorites/toggle/${productId}`,
-            type: 'POST',
-            data: {
-                _token: $('meta[name="csrf-token"]').attr('content')
-            },
-            success: function(response) {
-                if (response.success) {
-                    $button.toggleClass('active');
-                    showToast(response.message, response.success ? 'success' : 'info');
+            $.ajax({
+                url: `/customer/favorites/toggle/${productId}`,
+                type: 'POST',
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr('content')
+                },
+                success: function(response) {
                     if (response.success) {
-                        // Gửi thông báo
-                        fetch('/notifications/create', {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                user_id: {{ Auth::id() }},
-                                type: 'favorite_added',
-                                title: 'Sản phẩm yêu thích',
-                                message: `Bạn đã yêu thích sản phẩm "${response.product_name}".`,
-                                data: { product_id: productId },
-                                related_id: productId,
-                                related_type: 'Product'
-                            })
-                        }).then(() => loadNotifications());
+                        $button.toggleClass('active');
+                        showToast(response.message, response.success ? 'success' : 'info');
+                        if (response.success) {
+                            fetch('/notifications/create', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    user_id: {!! json_encode(Auth::id() ?? 0) !!},
+                                    type: 'favorite_added',
+                                    title: 'Sản phẩm yêu thích',
+                                    message: `Bạn đã yêu thích sản phẩm "${response.product_name}".`,
+                                    data: { product_id: productId },
+                                    related_id: productId,
+                                    related_type: 'Product'
+                                })
+                            }).then(() => loadNotifications());
+                        }
+                        setTimeout(() => {
+                            window.location.href = "{{ route('customer.favorites') }}";
+                        }, 2000);
                     }
-                    // Chuyển hướng đến trang danh sách yêu thích sau 2 giây (để hiển thị toast)
-                    setTimeout(() => {
-                        window.location.href = "{{ route('customer.favorites') }}";
-                    }, 2000); // 2000ms = 2 giây
+                },
+                error: function() {
+                    showToast('Có lỗi xảy ra khi cập nhật yêu thích!', 'error');
                 }
-            },
-            error: function() {
-                showToast('Có lỗi xảy ra khi cập nhật yêu thích!', 'error');
-            }
+            });
         });
-    });
 
         // Notification System
         document.addEventListener('DOMContentLoaded', function() {
@@ -548,7 +544,6 @@
                 .catch(error => console.error('Error marking all as read:', error));
             });
 
-            // Load notifications initially and every 30 seconds
             loadNotifications();
             setInterval(loadNotifications, 30000);
         });
@@ -571,6 +566,60 @@
             toast.toast({ delay: 3000 }).toast('show');
         }
     </script>
+
+    <!-- Botman Widget -->
+
+    <script>
+        // Đợi DOM load xong
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Khởi tạo Botman Widget...');
+
+            // Cấu hình widget
+            var botmanWidget = {
+                title: 'Hỗ trợ 24/7',
+                introMessage: 'Xin chào! Tôi có thể giúp gì cho bạn?',
+                mainColor: '#007bff',
+                bubbleBackground: '#007bff',
+                aboutText: 'Chatbot Laravel SCM',
+                chatServer: '/botman',
+                bubbleAvatarUrl: '',
+                desktopHeight: 400,
+                desktopWidth: 370,
+                userId: '@auth{{ Auth::id() }}@else null @endauth'
+            };
+
+            // Tải script widget
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/botman-web-widget@0/build/js/widget.js';
+            script.onload = function() {
+                console.log('Botman widget đã tải thành công');
+            };
+            script.onerror = function() {
+                console.error('Lỗi khi tải Botman widget');
+                // Fallback: tạo bubble chat đơn giản
+                createFallbackChatBubble();
+            };
+            document.head.appendChild(script);
+        });
+
+        // Tạo chat bubble đơn giản nếu widget không load được
+        function createFallbackChatBubble() {
+            console.log('Tạo fallback chat bubble');
+            var bubble = document.createElement('div');
+            bubble.innerHTML = `
+                <div style="position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background: #007bff; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; box-shadow: 0 4px 12px rgba(0,123,255,0.3);" onclick="openFallbackChat()">
+                    <span style="color: white; font-size: 24px;">💬</span>
+                </div>
+            `;
+            document.body.appendChild(bubble);
+        }
+
+        // Mở chat fallback
+        function openFallbackChat() {
+            alert('Chatbot đang được phát triển. Vui lòng liên hệ hotline: 1900-1234');
+        }
+    </script>
+
 
     @yield('scripts')
 </body>

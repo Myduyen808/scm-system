@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\Order;
 use App\Models\User;
 use App\Models\Review; // Thêm import cho Review
+use App\Models\InternalRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash; // vì bạn có dùng Hash::make()
@@ -23,15 +24,17 @@ use Illuminate\Support\Facades\Response; // Thêm dòng này
 use Illuminate\Support\Facades\Artisan;
 use Spatie\Activitylog\Models\Activity;
 use Illuminate\Support\Facades\Log;
+use App\Services\NotificationService; // Đảm bảo import đúng namespace
 // use App\Models\Supplier;
 
 
 class AdminController extends Controller
 {
-    public function __construct()
+    public function __construct(NotificationService $notificationService)
     {
         $this->middleware('auth');
         $this->middleware('role:admin');
+        $this->notificationService = $notificationService;
     }
 
     // ==================== DASHBOARD ====================
@@ -767,5 +770,176 @@ class AdminController extends Controller
         return view('admin.logs', compact('logs'));
     }
 
+public function internalRequests()
+{
+    $requests = InternalRequest::with(['employee', 'product', 'supplier'])
+        ->orderBy('created_at', 'desc')
+        ->paginate(10);
+    return view('admin.internal_requests.index', compact('requests'));
+}
+
+public function approveRequest($id)
+{
+    $internalRequest = InternalRequest::findOrFail($id);
+
+    if ($internalRequest->status !== 'pending') {
+        return redirect()->back()->with('error', 'Yêu cầu đã xử lý.');
+    }
+
+    DB::beginTransaction();
+    try {
+        $product = $internalRequest->product;
+        if (!$product) {
+            throw new \Exception('Sản phẩm không tồn tại.');
+        }
+
+        // Kiểm tra tồn kho
+        if ($product->stock_quantity < $internalRequest->quantity) {
+            throw new \Exception('Tồn kho không đủ để duyệt yêu cầu.');
+        }
+
+        $product->decrement('stock_quantity', $internalRequest->quantity);
+        $internalRequest->update(['status' => 'accepted']);
+
+        // Gửi thông báo cho nhân viên
+        if ($internalRequest->employee_id) {
+            $this->notificationService->createNotification(
+                $internalRequest->employee_id,
+                'request_approved',
+                'Yêu cầu được chấp nhận',
+                "Yêu cầu #{$internalRequest->request_number} đã được duyệt. Nhận sản phẩm tại kho.",
+                ['request_id' => $internalRequest->id],
+                $internalRequest->id,
+                'InternalRequest'
+            );
+        }
+
+        // Gửi thông báo cho tất cả admin
+        $admins = User::role('admin')->get();
+        foreach ($admins as $admin) {
+            $supplierName = $internalRequest->supplier ? $internalRequest->supplier->name : 'Nhân viên';
+            $message = "Yêu cầu #{$internalRequest->request_number} từ {$supplierName} đã được chấp nhận.";
+            $this->notificationService->createNotification(
+                $admin->id,
+                'request_approved_admin',
+                'Yêu cầu đã được duyệt',
+                $message,
+                ['request_id' => $internalRequest->id],
+                $internalRequest->id,
+                'InternalRequest'
+            );
+        }
+
+        DB::commit();
+        return redirect()->back()->with('success', 'Đã duyệt yêu cầu.');
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error approving request #' . $internalRequest->request_number . ': ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Lỗi khi duyệt: ' . $e->getMessage());
+    }
+}
+
+public function rejectRequest($id)
+{
+    $internalRequest = InternalRequest::findOrFail($id);
+
+    if ($internalRequest->status !== 'pending') {
+        return redirect()->back()->with('error', 'Yêu cầu đã xử lý.');
+    }
+
+    $internalRequest->update(['status' => 'rejected']);
+
+    // Gửi thông báo cho nhân viên hoặc supplier
+    $notifiedUserId = $internalRequest->employee_id ?? $internalRequest->supplier_id;
+    $userType = $internalRequest->employee_id ? 'employee' : 'supplier';
+    $this->notificationService->createNotification(
+        $notifiedUserId,
+        'request_rejected',
+        'Yêu cầu bị từ chối',
+        "Yêu cầu #{$internalRequest->request_number} đã bị từ chối.",
+        ['request_id' => $internalRequest->id],
+        $internalRequest->id,
+        'InternalRequest'
+    );
+
+    // Gửi thông báo cho tất cả admin
+    $admins = User::role('admin')->get();
+    foreach ($admins as $admin) {
+        $notifiedName = $internalRequest->supplier ? $internalRequest->supplier->name : $internalRequest->employee->name;
+        $message = "Yêu cầu #{$internalRequest->request_number} từ {$notifiedName} đã bị từ chối.";
+
+        $this->notificationService->createNotification(
+            $admin->id,
+            'request_rejected_admin',
+            'Yêu cầu bị từ chối',
+            $message,
+            ['request_id' => $internalRequest->id],
+            $internalRequest->id,
+            'InternalRequest'
+        );
+    }
+
+    return redirect()->back()->with('success', 'Đã từ chối yêu cầu.');
+}
+
+
+public function supplierInternalRequestForm()
+{
+    if (!Auth::user()->hasRole('supplier') || !Auth::user()->can('create internal requests')) {
+        abort(403);
+    }
+    $products = Product::where('supplier_id', Auth::id())->get();
+    return view('supplier.internal_requests.form', compact('products'));
+}
+
+public function submitSupplierInternalRequest(Request $request)
+{
+    if (!Auth::user()->hasRole('supplier') || Auth::id() != 4) {
+        abort(403);
+    }
+
+    $validated = $request->validate([
+        'product_id' => 'required|exists:products,id',
+        'quantity' => 'required|integer|min:1',
+        'purpose' => 'required|in:employee_trial,event_marketing', // Mục đích
+        'note' => 'nullable|string|max:500',
+    ]);
+
+    $product = Product::findOrFail($validated['product_id']);
+    if ($product->supplier_id != 4) {
+        return redirect()->back()->with('error', 'Sản phẩm không thuộc bạn.');
+    }
+
+    $requestData = [
+        'supplier_id' => 4,
+        'product_id' => $validated['product_id'],
+        'quantity' => $validated['quantity'],
+        'description' => "Yêu cầu nội bộ từ nhà cung cấp (Mục đích: {$validated['purpose']})",
+        'employee_note' => $validated['note'] ?? '',
+        'status' => 'pending',
+        'request_type' => 'supplier',
+        'created_at' => now(),
+        'updated_at' => now(),
+        'request_number' => 'SUP-' . str_pad(InternalRequest::max('id') + 1, 3, '0', STR_PAD_LEFT),
+    ];
+
+    try {
+        $internalRequest = InternalRequest::create($requestData);
+        $admins = User::role('admin')->get();
+        foreach ($admins as $admin) {
+            session()->flash('admin_notification_' . $admin->id, [
+                'type' => 'new_supplier_request',
+                'title' => 'Yêu cầu nội bộ từ nhà cung cấp',
+                'message' => "Nhà cung cấp ID 4 gửi yêu cầu #$internalRequest->request_number (Mục đích: {$validated['purpose']}).",
+                'request_id' => $internalRequest->id,
+            ]);
+        }
+        return redirect()->route('supplier.dashboard')->with('success', 'Yêu cầu đã gửi!');
+    } catch (\Exception $e) {
+        \Log::error('Error: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Lỗi xảy ra.')->withInput();
+    }
+}
 
 }
+

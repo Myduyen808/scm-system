@@ -13,6 +13,9 @@ use App\Models\SupportTicket;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Services\NotificationService; // Thêm service thông báo
+use App\Models\User; // ← Thêm dòng này
+use App\Models\InternalRequest;
+
 
 
 class EmployeeController extends Controller
@@ -25,59 +28,65 @@ class EmployeeController extends Controller
         $this->notificationService = $notificationService; // Tiêm service
     }
 
-    public function dashboard()
-    {
-        $totalProducts = Product::count();
-        $pendingOrders = Order::where('status', 'pending')->count();
-        $openTickets = SupportTicket::where('status', 'open')->count();
-        $activePromotions = Promotion::where('is_active', true)
-            ->whereDate('start_date', '<=', now())
-            ->whereDate('end_date', '>=', now())
-            ->count();
-        $orderStats = [
-            'pending' => Order::where('status', 'pending')->count(),
-            'processing' => Order::where('status', 'processing')->count(),
-            'delivered' => Order::where('status', 'delivered')->count(),
-        ];
-        $approvedProducts = Product::where('is_approved', true)
-            ->with('inventory')
-            ->orderBy('updated_at', 'desc')
-            ->limit(5)
-            ->get();
-        $reviews = Review::with(['product', 'user'])
-            ->latest()
-            ->limit(5)
-            ->get();
+public function dashboard()
+{
+    $totalProducts = Product::count();
+    $pendingOrders = Order::where('status', 'pending')->count();
+    $openTickets = SupportTicket::where('status', 'open')->count();
+    $activePromotions = Promotion::where('is_active', true)
+        ->whereDate('start_date', '<=', now())
+        ->whereDate('end_date', '>=', now())
+        ->count();
+    $orderStats = [
+        'pending' => Order::where('status', 'pending')->count(),
+        'processing' => Order::where('status', 'processing')->count(),
+        'delivered' => Order::where('status', 'delivered')->count(),
+    ];
+    $approvedProducts = Product::where('is_approved', true)
+        ->with('inventory')
+        ->orderBy('updated_at', 'desc')
+        ->limit(5)
+        ->get();
+    $reviews = Review::with(['product', 'user'])
+        ->latest()
+        ->limit(5)
+        ->get();
 
-        // Doanh thu theo tháng (12 tháng)
-        $monthlyRevenues = Order::where('status', 'delivered')
-            ->selectRaw('MONTH(created_at) as month, SUM(total_amount) as revenue')
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get()
-            ->pluck('revenue', 'month')
-            ->all();
-        $labels = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
-        $revenueData = array_map(function($month) use ($monthlyRevenues) {
-            return $monthlyRevenues[$month] ?? 0;
-        }, range(1, 12));
+    // Doanh thu theo tháng (12 tháng)
+    $monthlyRevenues = Order::where('status', 'delivered')
+        ->selectRaw('MONTH(created_at) as month, SUM(total_amount) as revenue')
+        ->groupBy('month')
+        ->orderBy('month')
+        ->get()
+        ->pluck('revenue', 'month')
+        ->all();
+    $labels = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+    $revenueData = array_map(function($month) use ($monthlyRevenues) {
+        return $monthlyRevenues[$month] ?? 0;
+    }, range(1, 12));
 
-        // Lấy thông báo chưa đọc liên quan đến ticket
-        $notifications = Auth::user()->notifications()->where('type', 'ticket_assigned')->where('is_read', false)->latest()->limit(5)->get();
+    // Lấy thông báo chưa đọc liên quan đến ticket
+    $notifications = Auth::user()->notifications()->where('type', 'ticket_assigned')->where('is_read', false)->latest()->limit(5)->get();
 
-        return view('employee.dashboard', compact(
-            'totalProducts',
-            'pendingOrders',
-            'openTickets',
-            'activePromotions',
-            'orderStats',
-            'approvedProducts',
-            'reviews',
-            'labels',
-            'revenueData',
-            'notifications'
-        ));
-    }
+    // Lấy danh sách ticket cho nhân viên (phân trang)
+    $tickets = SupportTicket::where('assigned_to', Auth::id())
+        ->with('replies')
+        ->paginate(5); // Hiển thị 5 ticket mỗi trang
+
+    return view('employee.dashboard', compact(
+        'totalProducts',
+        'pendingOrders',
+        'openTickets',
+        'activePromotions',
+        'orderStats',
+        'approvedProducts',
+        'reviews',
+        'labels',
+        'revenueData',
+        'notifications',
+        'tickets' // Thêm biến tickets
+    ));
+}
 
     // Quản lý kho (Inventory)
     public function inventory(Request $request)
@@ -250,25 +259,25 @@ class EmployeeController extends Controller
     }
 
     // Phản hồi yêu cầu (xử lý nhập hàng từ Supplier)
-    public function requests()
-    {
-        if (!Auth::user()->can('manage inventory')) {
-            abort(403, 'Bạn không có quyền truy cập.');
-        }
-
-        $requests = RequestModel::with(['product', 'supplier', 'replies'])
-            ->where('employee_id', Auth::id())
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
-
-        $lowStockProducts = Product::where('supplier_id', '!=', null)
-            ->where('stock_quantity', '<', 10)
-            ->where('is_approved', 1)
-            ->with('supplier')
-            ->get();
-
-        return view('employee.requests.index', compact('requests', 'lowStockProducts'));
+public function requests()
+{
+    if (!Auth::user()->can('manage inventory')) {
+        abort(403, 'Bạn không có quyền truy cập.');
     }
+
+    $requests = RequestModel::with(['product', 'supplier', 'replies'])
+        ->where('employee_id', Auth::id())
+        ->orderBy('created_at', 'desc')
+        ->paginate(10); // trả về LengthAwarePaginator
+
+    $lowStockProducts = Product::whereNotNull('supplier_id')
+        ->where('stock_quantity', '<', 10)
+        ->where('is_approved', 1)
+        ->with('supplier')
+        ->paginate(10);
+
+    return view('employee.requests.index', compact('requests', 'lowStockProducts'));
+}
 
 
     public function processRequest(Request $request, $id)
@@ -535,16 +544,18 @@ class EmployeeController extends Controller
             'quantity' => 'required|integer|min:1',
             'supplier_id' => 'required|exists:users,id',
             'note' => 'nullable|string|max:500',
+            'internal_use' => 'boolean',
         ]);
 
+        $product = Product::findOrFail($validated['product_id']);
         $requestData = [
             'supplier_id' => $validated['supplier_id'],
             'employee_id' => Auth::id(),
             'product_id' => $validated['product_id'],
             'quantity' => $validated['quantity'],
-            'description' => 'Yêu cầu nhập hàng',
+            'description' => $validated['internal_use'] ? 'Yêu cầu nội bộ' : 'Yêu cầu nhập hàng',
             'employee_note' => $validated['note'] ?? '',
-            'status' => 'pending',
+            'status' => $validated['internal_use'] ? 'completed' : 'pending',
             'created_at' => now(),
             'updated_at' => now(),
             'request_number' => 'REQ-' . str_pad(RequestModel::max('id') + 1, 3, '0', STR_PAD_LEFT),
@@ -552,23 +563,34 @@ class EmployeeController extends Controller
 
         try {
             \DB::beginTransaction();
-            $requestModel = RequestModel::create($requestData);
 
-            $supplier = \App\Models\User::find($validated['supplier_id']);
-            if ($supplier) {
-                $this->notificationService->createNotification(
-                    $supplier->id,
-                    'new_stock_request',
-                    'Yêu cầu nhập hàng mới',
-                    "Nhân viên đã gửi yêu cầu nhập hàng cho sản phẩm '{$requestModel->product->name}'. Xem chi tiết tại: " . route('supplier.requests.show', $requestModel->id),
-                    ['request_id' => $requestModel->id],
-                    $requestModel->id,
-                    'RequestModel'
-                );
+            if ($validated['internal_use']) {
+                // Kiểm tra tồn kho đủ lớn để sử dụng nội bộ
+                if ($product->stock_quantity < 10 || $product->stock_quantity < $validated['quantity']) {
+                    return redirect()->back()->with('error', 'Tồn kho không đủ để sử dụng nội bộ. Vui lòng yêu cầu nhập hàng thêm.');
+                }
+                $product->decrement('stock_quantity', $validated['quantity']);
+                $requestData['status'] = 'completed';
+            } else {
+                $supplier = \App\Models\User::find($validated['supplier_id']);
+                if ($supplier && $supplier->id == 4) {
+                    $this->notificationService->createNotification(
+                        $supplier->id,
+                        'new_stock_request',
+                        'Yêu cầu nhập hàng mới',
+                        "Nhân viên đã gửi yêu cầu nhập hàng cho sản phẩm '{$product->name}'. Xem chi tiết tại: " . route('supplier.requests.show', $requestModel->id),
+                        ['request_id' => $requestModel->id],
+                        $requestModel->id,
+                        'RequestModel'
+                    );
+                }
             }
 
+            $requestModel = RequestModel::create($requestData);
+
             \DB::commit();
-            return redirect()->route('employee.requests')->with('success', 'Yêu cầu nhập hàng đã được gửi thành công!')->with('request_id', $requestModel->id);
+            $message = $validated['internal_use'] ? 'Yêu cầu nội bộ đã được xử lý thành công!' : 'Yêu cầu nhập hàng đã được gửi thành công!';
+            return redirect()->route('employee.requests')->with('success', $message)->with('request_id', $requestModel->id);
         } catch (\Exception $e) {
             \DB::rollBack();
             \Log::error('Error creating request: ' . $e->getMessage());
@@ -657,4 +679,80 @@ class EmployeeController extends Controller
 
         return redirect()->route('supplier.requests')->with('success', 'Phản hồi đã được gửi thành công!');
     }
+
+    //sử dụng nội bộ
+public function showInternalRequestForm()
+{
+    if (!Auth::user()->can('manage inventory')) {
+        abort(403);
+    }
+
+    $availableProducts = Product::where('stock_quantity', '>', 0)
+        ->where('is_approved', 1)
+        ->with('supplier')
+        ->get();
+
+    $suppliers = User::role('supplier')->get(); // Lấy danh sách nhà cung cấp
+
+    return view('employee.requests.internal', compact('availableProducts', 'suppliers'));
+}
+
+public function sendInternalRequest(Request $request)
+{
+    if (!Auth::user()->can('manage inventory')) {
+        abort(403);
+    }
+
+    $validated = $request->validate([
+        'product_id' => 'required|exists:products,id',
+        'quantity' => 'required|integer|min:1|max:' . Product::find($request->product_id)->stock_quantity,
+        'supplier_id' => 'required|exists:users,id',
+        'note' => 'nullable|string|max:500',
+    ]);
+
+    $product = Product::findOrFail($validated['product_id']);
+    $supplier = User::findOrFail($validated['supplier_id']);
+
+    // Kiểm tra xem sản phẩm có thuộc nhà cung cấp đã chọn không (tùy chọn)
+    if ($product->supplier_id && $product->supplier_id != $validated['supplier_id']) {
+        return redirect()->back()->with('warning', 'Sản phẩm không khớp với nhà cung cấp đã chọn.');
+    }
+
+    $requestData = [
+        'employee_id' => Auth::id(),
+        'supplier_id' => $validated['supplier_id'], // Thêm supplier_id
+        'product_id' => $validated['product_id'],
+        'quantity' => $validated['quantity'],
+        'description' => 'Yêu cầu nội bộ từ nhân viên',
+        'employee_note' => $validated['note'] ?? '',
+        'status' => 'pending',
+        'request_type' => 'employee',
+        'created_at' => now(),
+        'updated_at' => now(),
+        'request_number' => 'EMP-' . str_pad(InternalRequest::max('id') + 1, 3, '0', STR_PAD_LEFT),
+    ];
+
+    try {
+        $internalRequest = InternalRequest::create($requestData);
+
+        // Gửi thông báo cho tất cả admin
+        $admins = User::role('admin')->get();
+        foreach ($admins as $admin) {
+            $this->notificationService->createNotification(
+                $admin->id,
+                'new_internal_request',
+                'Yêu cầu nội bộ mới',
+                "Nhân viên {$request->user()->name} gửi yêu cầu #$internalRequest->request_number cho nhà cung cấp {$supplier->name}.",
+                ['request_id' => $internalRequest->id],
+                $internalRequest->id,
+                'InternalRequest'
+            );
+        }
+
+        return redirect()->route('employee.requests')->with('success', 'Yêu cầu đã được gửi!');
+    } catch (\Exception $e) {
+        Log::error('Error: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Có lỗi xảy ra.')->withInput();
+    }
+}
 }

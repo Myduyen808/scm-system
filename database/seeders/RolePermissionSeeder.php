@@ -29,7 +29,9 @@ class RolePermissionSeeder extends Seeder
             'manage tickets',
             'approve products', // Mới: Quyền approve sản phẩm từ Supplier
             'manage reviews',
-            'create tickets' // Thêm dòng này
+            'create tickets', // Thêm dòng này
+            'manage internal requests',
+            'create internal requests' // Thêm quyền mới
         ];
 
         foreach (array_unique($permissions) as $permission) {
@@ -47,7 +49,7 @@ class RolePermissionSeeder extends Seeder
         $customerRole->syncPermissions(['view products', 'place orders','create tickets']);
 
         $supplierRole = Role::updateOrCreate(['name' => 'supplier']);
-        $supplierRole->syncPermissions(['update stock']);
+        $supplierRole->syncPermissions(['update stock', 'create internal requests']);
 
         // Tạo user và gán role
         $admin = User::updateOrCreate(
